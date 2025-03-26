@@ -6,7 +6,7 @@ class DashParser:
     def build(self, target, nodes, uri, request):
         message = {}
         message['VERSION'] = 1
-        message['TTL'] = 10
+        message['TTL'] = 5
         message['RELOAD-URI'] = f'{uri}{request.path}'
 
         message["PATHWAY-PRIORITY"] = [f'{node[0]}' for node in nodes] + ['cloud']
