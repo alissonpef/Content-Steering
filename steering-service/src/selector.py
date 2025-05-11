@@ -1,99 +1,85 @@
 import json
 import random
 
-import latency.latency_estimator as lat_estimator
-
-
-
-NODE_NAME = 0
-
-
 class Selector:
     def __init__(self, monitor=None):
-        self.clouds = []
-        self.clusters = []
-        self.sessions = {}
-
-        self.start_algorithm = False
         self.monitor = monitor
-        
-    def solve(self, uid, **kwargs) -> object:
-        raise ValueError("Both request problem and select cache problem must be set")
-
-
 
 class EpsilonGreedy(Selector):
     def __init__(self, epsilon, counts, values, monitor=None):
-        self.epsilon = epsilon
-        self.counts  = counts
-        self.values  = values
-        self.nodes   = None
-        self.latency_average = []
-        
         super().__init__(monitor=monitor)
+        self.epsilon = epsilon
+        self.counts = counts if counts is not None else {}
+        self.values = values if values is not None else {} 
+        self.nodes = [] 
 
+    def initialize(self, arms_names: list):
+        if not arms_names:
+            self.nodes = []
+            self.counts = {}
+            self.values = {}
+            return
 
-    # Initialise arms with given names
-    def initialize(self, arms_names : list):
-        self.counts = dict.fromkeys(arms_names, 0)
-        self.values = dict.fromkeys(arms_names, 0.0)
+        for arm in arms_names:
+            if arm not in self.counts:
+                self.counts[arm] = 0
+                self.values[arm] = 0.0
+        
+        current_known_arms = list(self.counts.keys())
+        for arm in current_known_arms:
+            if arm not in arms_names:
+                del self.counts[arm]
+                del self.values[arm]
+            
+        self.nodes = list(self.counts.keys())
 
-        self.nodes = arms_names
-    
     def select_arm(self):
-        if random.random() > self.epsilon:
-            return sorted(self.nodes, key=lambda node: self.values[node])
+        current_monitor_node_names = [name for name, _ in self.monitor.getNodes() if name]
+        if not current_monitor_node_names and not self.nodes:
+             return []
+        if set(current_monitor_node_names) != set(self.nodes):
+            self.initialize(current_monitor_node_names)
+        
+        if not self.nodes:
+            return []
 
-        random.shuffle(self.nodes)
-        return self.nodes
+        unvisited_arms = [arm for arm in self.nodes if self.counts.get(arm, 0) == 0]
+        if unvisited_arms:
+            random.shuffle(unvisited_arms)
+            chosen_unvisited_for_exploration = unvisited_arms[0]
+            
+            other_nodes = [n for n in self.nodes if n != chosen_unvisited_for_exploration]
+            
+            if not other_nodes:
+                return [chosen_unvisited_for_exploration]
 
-    
-    def solve(self, nodes, **kwargs):
-        return self.select_arm()
-    
-    
+            if random.random() > self.epsilon: 
+                sorted_remaining_exploit = sorted(other_nodes, key=lambda node: self.values.get(node, 0.0))
+                return [chosen_unvisited_for_exploration] + sorted_remaining_exploit
+            else: 
+                shuffled_remaining = random.sample(other_nodes, len(other_nodes))
+                return [chosen_unvisited_for_exploration] + shuffled_remaining
+
+        if random.random() > self.epsilon: 
+            sorted_nodes = sorted(list(self.nodes), key=lambda node: self.values.get(node, float('inf')))
+            return sorted_nodes
+        else: 
+            shuffled_nodes = random.sample(list(self.nodes), len(self.nodes))
+            return shuffled_nodes
+
     def update(self, chosen_arm_name, punishment):
-        # update counts pulled for chosen arm
-        self.counts[chosen_arm_name] = self.counts[chosen_arm_name] + 1
+        if chosen_arm_name not in self.counts:
+            current_monitor_node_names = [name for name, _ in self.monitor.getNodes() if name]
+            if chosen_arm_name in current_monitor_node_names:
+                self.initialize(current_monitor_node_names)
+                if chosen_arm_name not in self.counts:
+                    return
+            else:
+                return
+
+        self.counts[chosen_arm_name] += 1
         n = self.counts[chosen_arm_name]
-        
-        # Update average/mean value/punishment for chosen arm
         value = self.values[chosen_arm_name]
-        new_value = ((n-1)/float(n)) * value + (1 / float(n)) * punishment
+        
+        new_value = ((n - 1) / float(n)) * value + (1 / float(n)) * float(punishment)
         self.values[chosen_arm_name] = new_value
-
-        return
-    
-    
-    def sort_by_coord(self, lat, lon):        
-        print(f"[LOG][client] lat: {lat}, long: {lon}")
-
-        # Estimate latency
-        selected_node      = self.select_arm()[0]
-        selected_node_lat  = self.monitor.get_container_data(selected_node, 'latitude')
-        selected_node_long = self.monitor.get_container_data(selected_node, 'longitude')
-        estimated_latency  = lat_estimator.estimate_latency(lat, lon, selected_node_lat, selected_node_long)
-        
-        print(
-            f"[LOG] Selected Node: {selected_node}, "
-            f"lat: {selected_node_lat:.6f}, "
-            f"long: {selected_node_long:.6f}, "
-            f"latency: {estimated_latency:.2f} ms"
-        )
-
-        # Makes update
-        self.update(selected_node, estimated_latency)
-
-        self.log_latency_average(estimated_latency)
-        
-        
-    def log_latency_average(self, estimated_latency):
-        if not self.latency_average:
-            self.latency_average.append(estimated_latency)
-        else:
-            current_avr = (sum(self.latency_average) + estimated_latency) / (len(self.latency_average) + 1)
-            self.latency_average.append(current_avr)
-            self.latency_average = self.latency_average[-10:]
-        
-        with open("logs/latency_average.txt", "a") as arquivo:
-            arquivo.write(f"{self.latency_average[-1]}\n")

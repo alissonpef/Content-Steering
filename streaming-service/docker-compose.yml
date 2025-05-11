@@ -7,9 +7,10 @@ services:
       - ./certs:/root/certs
       - ../dataset:/srv
     environment:
+      # Brasil
       LATITUDE: "-23"
       LONGITUDE: "-47"
-      
+
   cache-2:
     container_name: video-streaming-cache-2
     image: caddy
@@ -18,9 +19,10 @@ services:
       - ./certs:/root/certs
       - ../dataset:/srv
     environment:
+      # Chile
       LATITUDE: "-33"
       LONGITUDE: "-71"
-      
+
   cache-3:
     container_name: video-streaming-cache-3
     image: caddy
@@ -29,6 +31,6 @@ services:
       - ./certs:/root/certs
       - ../dataset:/srv
     environment:
+      # Colômbia
       LATITUDE: "5"
       LONGITUDE: "-74"
-      

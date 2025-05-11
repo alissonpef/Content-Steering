@@ -1,82 +1,173 @@
-## Content Steering: Leveraging the Computing Continuum to Support Adaptive Video Streaming 
+# Content Steering with Reinforcement Learning: VM Simulation
 
-This repository was created to host the materials SBRC shortcourse.
+**See it in action!** Watch a video demonstrating the project's functionality:
+[▶️ Watch the Demo Video](https://www.youtube.com/watch?v=LHX0iUvxh3o&ab_channel=AlissonPereira%7CDev) 
 
-### Abstract
+This project demonstrates the application of Content Steering, using the DASH protocol and Reinforcement Learning (Epsilon-Greedy), to optimize cache server selection in a simulated video streaming environment. The testing and simulation environment is configured for execution within the provided VirtualBox VM.
 
-Video streaming has become one of the most used Internet applications nowadays, with numerous leading technology companies competing for dominance in a market valued in the billions. The delivery of high-quality streaming services necessitates strategic utilization of computing resources near end-users, with emerging technologies like 6G and edge-cloud continuum infrastructures being explored to meet these growing demands. These technologies promise to enable rapid, reliable data transfer for large data volumes, with the edge-cloud continuum facilitating service placement mobility from central cloud data centers to edge devices near users. However, managing seamless service mobility and precise computing resource allocation for quality service remains complex. The zero-touch network concept, eliminating the need for manual network configuration, is becoming popular in this context. Specifically, in video streaming, the integration of the Content Steering architecture from the Dynamic Adaptive Streaming over HTTP (DASH) protocol with container orchestrator technologies could allow for autonomous video streaming service placement across the continuum, reducing human involvement and optimizing computing resource use. Our short course provides a hands-on experience with the latest technology in this domain, teaching participants about cutting-edge architectures and tools for creating and managing adaptive video streaming applications using the latest content steering architecture introduced in the DASH protocol. Participants will build a small edge-cloud virtual and local testbed to explore request steering strategies for video content across the computing continuum. The course also addresses current challenges and future research opportunities in this evolving field.
+## Virtual Machine (VM) Environment
 
+*   **User:** `tutorial`
+*   **Password:** `tutorial`
 
-## Prerequisites:
+### Initial Environment and Project Setup
 
-- [mkcert](https://github.com/FiloSottile/mkcert)
-- [docker](https://www.docker.com/)
+1.  **Download Pre-configured VM (Optional Base):**
+    A VirtualBox VM with base software (Docker, Python, mkcert) is available. **Important: The project code in this VM is outdated.**
+    [Download VM via Google Drive](https://drive.google.com/file/d/1mCB585muebdJIN6yXbioIoD1762svy3T/view?usp=sharing)
 
-## VirtualBox VM:
+    If you choose to use this VM, **DO NOT use the project code that comes with it**. Follow the steps below to get the latest version.
 
-We provide a fully configured VirtualBox VM with all the necessary software for you to download and explore our tutorial's testbed. You can download the pre-configured VM in the following link: https://drive.google.com/file/d/1mCB585muebdJIN6yXbioIoD1762svy3T/view?usp=sharing
+2.  **Requirements for Using the VM:**
+    *   Oracle VirtualBox installed on your system. More information: [https://www.virtualbox.org/](https://www.virtualbox.org/)
 
-To use the VM, you'll need VirtualBox installed on your system. For more information on how to install VirtualBox or how to import a VM image, please refer to: https://www.virtualbox.org/
+3.  **Getting the Latest Project Code in the VM:**
+    After importing the VM and logging in (user: `tutorial`, password: `tutorial`):
+    *   Open a terminal.
+    *   We recommend cloning the latest version of the project repository directly into the VM. Navigate to a suitable directory (e.g., `~/Documents/`) and clone the repository:
+    ```bash
+    cd ~/Documents/
+    git clone <YOUR_UPDATED_GIT_REPOSITORY_URL> content-steering
+    cd content-steering/
+    ```
+    This directory, `~/Documents/content-steering/`, will be referred to as the "project root directory".
 
-### Executing the video streaming on the virtual box environment
+4.  **Preparing the `dataset` Directory:**
+    The video dataset ( `.mp4` files, `manifest.mpd`, etc.) is essential for the simulation.
+    *   **If you used the pre-configured VM:** The outdated VM contains a `dataset` directory at `~/Documents/content-steering-tutorial/dataset/`.
+    *   **Copy this `dataset` directory to the newly cloned project directory.**
+        Assuming the new project was cloned into `~/Documents/content-steering/` and the old VM project is in `~/Documents/content-steering-tutorial/`:
+    ```bash
+    cp -r ~/Documents/content-steering-tutorial/dataset/ ~/Documents/content-steering/
+    ```
+    This ensures that the `content-steering/dataset/` directory contains the necessary video files for the cache servers.
 
-1. After starting the machine, access the folder "Documents/content-steering-tutorial" and execute the starting-streaming.sh script ($ ./starting-streaming.sh)
-2. Verify whether the docker containers started ($ docker ps)
-3. Get information on the IP address of each cache node ($ docker inspect video-streaming-cache-1)
-4. For each cache node inspected, add a line in the /etc/hosts file following the pattern: 172.18.0.2  video-streaming-cache-1.
+## Step-by-Step Execution in the VM (with Updated Code)
 
-```
-172.18.0.2	video-streaming-cache-1
-172.18.0.4	video-streaming-cache-2
-172.18.0.3	video-streaming-cache-3
-```
+Follow these instructions **inside the VirtualBox VM**, in the updated project root directory (e.g., `~/Documents/content-steering/`). Two terminals will be required.
 
-5. Now the edge nodes are up and running, we need to start the content steering orchestrator. In the "Documents/content-steering-tutorial" type ($ python3 steering-service/src/app.py)
-6. Open Google Chrome and go to the video player GUI: https://reference.dashif.org/dash.js/latest/samples/advanced/content-steering.html
-7. In the URL, access: https://video-streaming-cache-1/Eldorado/4sec/avc/manifest.mpd
+### Terminal 1: Prepare and Start Backend Services
 
-## Configure Environment Tutorial:
+1.  **Navigate to the Project Root Directory:**
+    (E.g., `cd ~/Documents/content-steering/`)
 
+2.  **Generate and Place SSL Certificates:**
+    SSL certificates are required to run services over HTTPS. The `create_certs.sh` script (located in the project root `content-steering/`) uses `mkcert` to generate locally trusted certificates.
 
-## 1. Clone the Tutorial Repository
-First, clone the tutorial repository from GitHub using Git:
+    a.  **Execute the Certificate Creation Script:**
+        From the project root directory (`content-steering/`), run:
+    ```bash
+    ./create_certs.sh video-streaming-cache-1 video-streaming-cache-2 video-streaming-cache-3 steering-service
+    ```
+    *Note: `mkcert` may request the user's password (`tutorial`) to install the local CA if it's not already installed.*
 
-```shell
-git clone https://github.com/robertovrf/content-steering-tutorial
-```
+    b.  **Verification (Optional):**
+        The `create_certs.sh` script should create and move certificates to the following directories within the project:
+        *   **Cache Servers:** `content-steering/streaming-service/certs/` (files like `video-streaming-cache-1.pem`, `video-streaming-cache-1-key.pem`, etc.)
+        *   **Steering Service:** `content-steering/steering-service/certs/` (files `steering-service.pem`, `steering-service-key.pem`)
 
-## 2. Set Up Local Streaming Service
+3.  **Start Cache Servers (Streaming Service):**
+    From the project root directory:
+    ```bash
+    ./starting_streaming.sh
+    ```
+    Check if containers are running: `docker ps`
 
-### 2.1 Set Up Local Custom Domains and Certificates 
-Edit your local hosts file located at /etc/hosts to assign local custom domain names for streaming and steering services. Then, run the script create_certs.sh to generate certificates and enable HTTPS in localhost:
+4.  **Configure Name Resolution (`/etc/hosts` File):**
+    This step is crucial for services within the VM to communicate using hostnames.
 
-```shell
-./create_certs.sh <streaming-domain> <steering-domain>
-```
+    a.  Get Docker container IP addresses:
+    ```bash
+    docker inspect video-streaming-cache-1 | grep IPAddress
+    docker inspect video-streaming-cache-2 | grep IPAddress
+    docker inspect video-streaming-cache-3 | grep IPAddress
+    ```
+    b.  Edit the `/etc/hosts` file with superuser permissions (password: `tutorial`):
+    ```bash
+    sudo nano /etc/hosts
+    ```
+    c.  Add or update the following lines, replacing `<IP_CACHE_X>` with the actual IPs obtained in the previous step. Keep `localhost` and `steering-service` entries pointing to `127.0.0.1`:
+    ```
+    127.0.0.1       localhost
+    127.0.0.1       steering-service
 
-### 2.1 Download DASH Video Dataset
+    <IP_CACHE_1>    video-streaming-cache-1
+    <IP_CACHE_2>    video-streaming-cache-2
+    <IP_CACHE_3>    video-streaming-cache-3
+    ```
+    d.  Save the file and check its content: `cat /etc/hosts`
 
-Download a DASH video from the mmsys dataset and save it to the designated folder named dataset. The dataset offers various codec options such as AV1, AVC, HEVC, and VVC. You can use wget or any other method to download the video.
+5.  **Start the Steering Service (Orchestrator):**
+    a.  **Install Python Dependencies (Only the first time or if `requirements.txt` is changed):**
+        From the project root directory (`content-steering/`). The `tutorial` password will be requested:
+    ```bash
+    sudo pip3 install -r steering-service/requirements.txt
+    ```
 
+    b.  **Run `app.py`:**
+        Still in the project root directory (`content-steering/`). The `tutorial` password may be requested if the `tutorial` user does not have permission to access the Docker socket (usually resolved by adding the user to the `docker` group or running with `sudo`):
+    ```bash
+    sudo python3 steering-service/src/app.py
+    ```
+    You should see messages indicating the Flask server is running. Keep this terminal open.
 
-### 2.2 Start Local Streaming Service
+### Terminal 2: Serve the Client Interface (HTML Player)
 
-Run the script create_streaming.sh to initiate the regional streaming setup where the streaming services will run:
+1.  **Navigate to the Project Root Directory:**
+    (E.g., `cd ~/Documents/content-steering/`)
 
-```shell
-./starting_streaming.sh
-```
+2.  **Start a Simple HTTPS Server for the HTML:**
+    ```bash
+    python3 -m http.server 8000
+    ```
+    Keep this terminal open.
 
-You can now verify if the local video streaming is operational. Access the [dash.js](https://reference.dashif.org/dash.js/latest/samples/dash-if-reference-player/index.html) player and attempt to load the manifest using the following URL format:
+### Running the Simulation in the Browser
 
-```shell
-https://streaming-service/<streaming path>/manifest.mpd
-```
+1.  **Access the Player Interface:**
+    In the VM's browser, go to: `http://127.0.0.1:8000/Content%20Steering.html`.
 
-Replace <streaming-service> with your streaming domain and <streaming-path> with the path to your video.
+2.  **Load the MPD Manifest:**
+    The default URL (`https://video-streaming-cache-1/Eldorado/4sec/avc/manifest.mpd`) should work. Click "**Load MPD**".
 
+3.  **Configure and Start the Simulation:**
+    *   Adjust the desired parameters in the "Simulation Setup" panel.
+    *   Click "**Start Simulation**".
 
-## References
+4.  **Data Collection:**
+    During the simulation, the file `~/Documents/content-steering/Files/Data/simulation_log.csv` will be populated with simulation data. 
 
-- [mmsys22 Dataset](https://doi.org/10.1145/3524273.3532889) 
-Babak Taraghi, Hadi Amirpour, and Christian Timmerer. 2022. Multi-codec ultra high definition 8K MPEG-DASH dataset. In Proceedings of the 13th ACM Multimedia Systems Conference (MMSys '22). Association for Computing Machinery, New York, NY, USA, 216–220. 
+### Generating Graphs (After Simulation)
+
+1.  **Stop the Servers:** Press `Ctrl+C` in terminals 1 (Steering Service) and 2 (HTML Server).
+
+2.  **Run the Graph Generation Script:**
+    In the terminal, from the project root directory (`content-steering/`):
+    ```bash
+    python3 Generate_graphs.py
+    ```
+    The graph images will be saved in `~/Documents/content-steering/Files/Img/`. 
+
+---
+
+## Additional Useful Commands
+
+*   **`docker ps`**
+    *   Lists currently running Docker containers.
+*   **`docker compose -f streaming-service/docker-compose.yml down`**
+    *   (Run from the `content-steering/streaming-service/` directory)
+    *   Stops and removes the cache server containers and networks defined in `docker-compose.yml`.
+*   **`docker compose -f streaming-service/docker-compose.yml up -d`**
+    *   (Run from the `content-steering/streaming-service/` directory)
+    *   (Re)creates and (re)starts cache containers in detached mode (-d).
+*   **`docker logs <container_name_or_id> -f`**
+    *   Example: `docker logs video-streaming-cache-1 -f`
+    *   Displays logs for a specific container in real-time (useful for debugging).
+*   **`docker stop <container_name_or_id>`**
+    *   Example: `docker stop video-streaming-cache-2`
+    *   Stops a running container.
+*   **`docker start <container_name_or_id>`**
+    *   Example: `docker start video-streaming-cache-2`
+    *   Starts a previously stopped container.
+
+---
