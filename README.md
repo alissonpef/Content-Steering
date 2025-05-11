@@ -27,7 +27,7 @@ This project demonstrates the application of Content Steering, using the DASH pr
     *   We recommend cloning the latest version of the project repository directly into the VM. Navigate to a suitable directory (e.g., `~/Documents/`) and clone the repository:
     ```bash
     cd ~/Documents/
-    git clone <YOUR_UPDATED_GIT_REPOSITORY_URL> content-steering
+    git clone <https://github.com/alissonpef/Content-Steering> content-steering
     cd content-steering/
     ```
     This directory, `~/Documents/content-steering/`, will be referred to as the "project root directory".
