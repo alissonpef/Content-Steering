@@ -66,38 +66,17 @@ Follow these instructions **inside the VirtualBox VM**, in the updated project r
         *   **Cache Servers:** `content-steering/streaming-service/certs/` (files like `video-streaming-cache-1.pem`, `video-streaming-cache-1-key.pem`, etc.)
         *   **Steering Service:** `content-steering/steering-service/certs/` (files `steering-service.pem`, `steering-service-key.pem`)
 
-3.  **Start Cache Servers (Streaming Service):**
-    From the project root directory:
+3.  **Start Cache Servers and Configure Name Resolution (`/etc/hosts`):**
+    The `starting_streaming.sh` script handles starting the cache server Docker containers and automatically updating the `/etc/hosts` file. This ensures proper name resolution for the services.
     ```bash
-    ./starting_streaming.sh
+    sudo ./starting_streaming.sh
     ```
-    Check if containers are running: `docker ps`
+    After the script finishes, it will have:
+    *   Started the `video-streaming-cache-1`, `video-streaming-cache-2`, and `video-streaming-cache-3` containers.
+    *   Updated `/etc/hosts` to map these container names to their Docker IPs and `steering-service` to `127.0.0.1`.
+    *You can verify the containers are running with `docker ps`.*
 
-4.  **Configure Name Resolution (`/etc/hosts` File):**
-    This step is crucial for services within the VM to communicate using hostnames.
-
-    a.  Get Docker container IP addresses:
-    ```bash
-    docker inspect video-streaming-cache-1 | grep IPAddress
-    docker inspect video-streaming-cache-2 | grep IPAddress
-    docker inspect video-streaming-cache-3 | grep IPAddress
-    ```
-    b.  Edit the `/etc/hosts` file with superuser permissions (password: `tutorial`):
-    ```bash
-    sudo nano /etc/hosts
-    ```
-    c.  Add or update the following lines, replacing `<IP_CACHE_X>` with the actual IPs obtained in the previous step. Keep `localhost` and `steering-service` entries pointing to `127.0.0.1`:
-    ```
-    127.0.0.1       localhost
-    127.0.0.1       steering-service
-
-    <IP_CACHE_1>    video-streaming-cache-1
-    <IP_CACHE_2>    video-streaming-cache-2
-    <IP_CACHE_3>    video-streaming-cache-3
-    ```
-    d.  Save the file and check its content: `cat /etc/hosts`
-
-5.  **Start the Steering Service (Orchestrator):**
+4.  **Start the Steering Service (Orchestrator):**
     a.  **Install Python Dependencies (Only the first time or if `requirements.txt` is changed):**
         From the project root directory (`content-steering/`). The `tutorial` password will be requested:
     ```bash
