@@ -66,6 +66,12 @@
               <input type="text" id="manifest" class="form-control form-control-sm" placeholder="MPD URL" value="https://video-streaming-cache-1/Eldorado/4sec/avc/manifest.mpd"/>
               <button type="button" id="load-button" class="btn btn-primary btn-sm">Load MPD</button>
             </div>
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" value="" id="autoStartCheckbox">
+                <label class="form-check-label" for="autoStartCheckbox" style="font-size: 0.9em;">
+                    Auto-start simulation on MPD load
+                </label>
+            </div>
             <video controls="true" muted="true" preload="metadata"></video>
              <div class="mt-2">
                 Sim Time: <span id="simCurrentTimeDisplay">0</span>s |
@@ -116,9 +122,11 @@
         let simCurrentLat, simCurrentLon;
         let isSimulationRunning = false;
         let manifestSuccessfullyLoaded = false;
+        
         let onManifestLoadedCallback = null;
         let onManifestErrorCallback = null;
-        let onStreamInitForPlay = null;
+        let onStreamInitForPlay = null; 
+        let onStreamInitForAutomaticPlay = null; 
 
         let fragmentLoadStarts = {};
 
@@ -129,17 +137,19 @@
         function setupPlayer() {
             const videoElement = document.querySelector("video");
             if (player) {
+                
                 if (onManifestLoadedCallback) player.off(dashjs.MediaPlayer.events.MANIFEST_LOADED, onManifestLoadedCallback);
                 if (onManifestErrorCallback) player.off(dashjs.MediaPlayer.events.ERROR, onManifestErrorCallback);
                 if (onStreamInitForPlay) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay);
+                if (onStreamInitForAutomaticPlay) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForAutomaticPlay);
                 player.reset();
             }
             player = dashjs.MediaPlayer().create();
-            player.initialize(videoElement, null, false);
+            player.initialize(videoElement, null, false); 
             player.on(dashjs.MediaPlayer.events.FRAGMENT_LOADING_STARTED, _onFragmentLoadingStarted);
             player.on(dashjs.MediaPlayer.events.FRAGMENT_LOADING_COMPLETED, _onFragmentLoadingCompleted);
             player.on(dashjs.MediaPlayer.events.CONTENT_STEERING_REQUEST_COMPLETED, _onContentSteeringRequestCompleted);
-            player.on(dashjs.MediaPlayer.events.ERROR, (e) => {
+            player.on(dashjs.MediaPlayer.events.ERROR, (e) => { 
                 console.error("Player Error (Global Listener):", e);
                 if (e.error && e.error.code &&
                     (e.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE ||
@@ -166,7 +176,7 @@
             for (const cacheName in CACHE_COORDS) {
                 _createIcon(cdnContainer, cacheName, cdnIconDomElements, "cdn");
             }
-            _resetUIOnly();
+            _resetUIOnly(); 
             document.getElementById("button_StartControlledSim").disabled = true;
             document.getElementById("button_StopSim").disabled = true;
         }
@@ -194,11 +204,11 @@
                 if (player.isReady() && !player.isPaused()) {
                     player.pause();
                 }
-                if (player.isReady()){
+                if (player.isReady()){ 
                     player.seek(0);
                 }
             }
-            document.getElementById("button_StartControlledSim").disabled = !manifestSuccessfullyLoaded;
+            document.getElementById("button_StartControlledSim").disabled = !manifestSuccessfullyLoaded; 
             document.getElementById("button_StopSim").disabled = true;
             document.getElementById("simMovementStatus").textContent = "Inactive";
             document.getElementById("simSpamStatus").textContent = "Inactive";
@@ -209,62 +219,77 @@
             document.getElementById("simCurrentTimeDisplay").textContent = "0";
             const initialLatVal = parseFloat(document.getElementById("initialSimLat").value);
             const initialLonVal = parseFloat(document.getElementById("initialSimLon").value);
-            simCurrentLat = initialLatVal; simCurrentLon = initialLonVal;
-            document.getElementById("current-latitude").value = isNaN(initialLatVal) ? "" : initialLatVal.toFixed(5);
-            document.getElementById("current-longitude").value = isNaN(initialLonVal) ? "" : initialLonVal.toFixed(5);
+            simCurrentLat = isNaN(initialLatVal) ? -20.0 : initialLatVal; 
+            simCurrentLon = isNaN(initialLonVal) ? -40.0 : initialLonVal; 
+            document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
+            document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
             document.getElementById("steering-decision-display").textContent = "N/A";
             document.getElementById("steering-request-timestamp").textContent = "N/A";
             document.getElementById("steering-request-url").textContent = "N/A";
             document.getElementById("steering-pathway-cloning").textContent = "N/A";
             currentSegmentServiceLocation = { audio: null, video: null };
             _updateActiveServerIcons();
-            const fieldsToClear = ["audio-service-location", "audio-request-url", "video-service-location", "video-request-url", "manifest-service-location", "manifest-request-url"];
-            fieldsToClear.forEach(id => {
-                const el = document.getElementById(id); if (el) el.innerText = "N/A";
-            });
             fragmentLoadStarts = {};
          }
 
         function resetSimulationUIAndState() {
-            stopCurrentSimulation(true);
-            _resetUIOnly();
-            if (manifestSuccessfullyLoaded && player && player.isReady()) {
-                player.seek(0);
-            }
-            manifestSuccessfullyLoaded = false;
-            document.getElementById("button_StartControlledSim").disabled = true;
+            stopCurrentSimulation(true); 
+            _resetUIOnly(); 
+            
+            
+            
+            document.getElementById("button_StartControlledSim").disabled = true; 
         }
 
         function startControlledSimulation() {
             if (!manifestSuccessfullyLoaded) {
-                alert("Please load a valid MPD first by clicking 'Load MPD'!"); return;
+                console.warn("[SIM_START] Attempted to start simulation, but manifest was not successfully loaded.");
+                return;
             }
             if (isSimulationRunning) {
-                console.warn("[SIM] Simulation is already running. Stop or Reset first."); return;
+                console.warn("[SIM_START] Simulation is already running. Stop or Reset first.");
+                return;
             }
+            
+            console.log("[SIM_START] Starting controlled simulation...");
             simElapsedTime = 0; simMovementActive = false; simSpamActive = false;
             stopInterval(simIntervalID_movement); simIntervalID_movement = null;
             stopInterval(simIntervalID_spam); simIntervalID_spam = null;
             if (simTimer) { clearInterval(simTimer); simTimer = null; }
             document.getElementById("simCurrentTimeDisplay").textContent = "0";
             isSimulationRunning = true;
-            fragmentLoadStarts = {};
-            function attemptPlay() {
-                if (manifestSuccessfullyLoaded && player.isReady() && player.getActiveStream()) {
-                     player.seek(0); player.play();
-                } else if (manifestSuccessfullyLoaded && player.isReady()) {
-                    if (onStreamInitForPlay && player) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay);
-                    onStreamInitForPlay = function() {
-                        if (!isSimulationRunning) return;
-                        if (manifestSuccessfullyLoaded && player.isReady()) {
-                            player.seek(0); player.play();
-                        }
-                        player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay);
-                    };
-                    player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay, null, { once: true });
+            fragmentLoadStarts = {}; 
+
+            function attemptPlayAfterStreamReady() {
+                 if (player.getActiveStream() && player.isReady() && manifestSuccessfullyLoaded) {
+                    console.log("[SIM_START_PLAY] Stream ready, seeking to 0 and playing.");
+                    player.seek(0); 
+                    player.play();
+                } else {
+                    console.warn("[SIM_START_PLAY] Conditions not met to play after stream init (Stream Active:", player.getActiveStream(), "Player Ready:", player.isReady(), "Manifest Loaded:", manifestSuccessfullyLoaded, ")");
                 }
             }
-            attemptPlay();
+
+            
+            if (player.getActiveStream() && player.isReady()) {
+                attemptPlayAfterStreamReady();
+            } else if (player.isReady()) {
+                if (onStreamInitForPlay && player) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay);
+                onStreamInitForPlay = function() {
+                    if (!isSimulationRunning) return; 
+                    attemptPlayAfterStreamReady();
+                    if (player) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay); 
+                };
+                player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay, null, { once: true });
+                console.log("[SIM_START] Player ready, waiting for STREAM_INITIALIZED to play...");
+            } else {
+                console.error("[SIM_START] Player is not ready. Cannot start playback reliably.");
+                
+                
+                isSimulationRunning = false; 
+                return;
+            }
+
             document.getElementById("button_StartControlledSim").disabled = true;
             document.getElementById("button_StopSim").disabled = false;
             const duration = parseInt(document.getElementById("simDuration").value) || 60;
@@ -273,12 +298,16 @@
             const spamTarget = document.getElementById("simSpamTarget").value;
             const spamStartTime = parseInt(document.getElementById("simSpamStartTime").value);
             const spamDuration = parseInt(document.getElementById("simSpamDuration").value);
+            
             simCurrentLat = parseFloat(document.getElementById("initialSimLat").value);
             simCurrentLon = parseFloat(document.getElementById("initialSimLon").value);
+            if(isNaN(simCurrentLat)) simCurrentLat = -20.0; 
+            if(isNaN(simCurrentLon)) simCurrentLon = -40.0; 
             document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
             document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
             document.getElementById("simMovementStatus").textContent = "Inactive";
             document.getElementById("simSpamStatus").textContent = "Inactive";
+
             simTimer = setInterval(() => {
                 if (!isSimulationRunning) {
                     clearInterval(simTimer); simTimer = null; return;
@@ -289,19 +318,19 @@
                     simMovementActive = true;
                     let effectiveMoveDuration = duration - simElapsedTime;
                     startSimulatedMovement(movementTarget, simCurrentLat, simCurrentLon, effectiveMoveDuration);
-                    document.getElementById("simMovementStatus").textContent = `Moving (to ${CACHE_COORDS[movementTarget]?.label})`;
+                    document.getElementById("simMovementStatus").textContent = `Moving (to ${CACHE_COORDS[movementTarget]?.label || movementTarget})`;
                 }
                 if (spamTarget !== "none" && simElapsedTime >= spamStartTime && !simSpamActive) {
                     simSpamActive = true;
                     startSimulatedCacheSpam(spamTarget);
-                    document.getElementById("simSpamStatus").textContent = `Spamming (${CACHE_COORDS[spamTarget]?.label})`;
+                    document.getElementById("simSpamStatus").textContent = `Spamming (${CACHE_COORDS[spamTarget]?.label || spamTarget})`;
                 }
                 if (simSpamActive && simElapsedTime >= (spamStartTime + spamDuration)) {
                     stopInterval(simIntervalID_spam); simIntervalID_spam = null;
                     simSpamActive = false;
                     document.getElementById("simSpamStatus").textContent = "Inactive";
                 }
-                reportLocationToSteering(simCurrentLat, simCurrentLon);
+                reportLocationToSteering(simCurrentLat, simCurrentLon); 
                 if (simElapsedTime >= duration) {
                     stopCurrentSimulation(true);
                 }
@@ -309,7 +338,11 @@
         }
         
         function startSimulatedMovement(targetCacheName, startLat, startLon, moveDurationSec) {
-            if (!CACHE_COORDS[targetCacheName]) return;
+            if (!CACHE_COORDS[targetCacheName]) {
+                console.warn(`[MOVEMENT] Target cache ${targetCacheName} not found in CACHE_COORDS.`);
+                simMovementActive = false; document.getElementById("simMovementStatus").textContent = "Error: Target Invalid";
+                return;
+            }
             const targetCoord = CACHE_COORDS[targetCacheName];
             const totalSteps = moveDurationSec > 0 ? Math.max(1, Math.floor(moveDurationSec)) : 1;
             const stepLat = (targetCoord.lat - startLat) / totalSteps;
@@ -317,26 +350,35 @@
             let stepsTaken = 0;
             if (simIntervalID_movement) clearInterval(simIntervalID_movement);
             simIntervalID_movement = setInterval(() => {
-                if (!isSimulationRunning) { clearInterval(simIntervalID_movement); simIntervalID_movement = null; return; }
+                if (!isSimulationRunning || !simMovementActive) { 
+                    clearInterval(simIntervalID_movement); simIntervalID_movement = null; return;
+                }
                 if (stepsTaken < totalSteps) {
                     simCurrentLat += stepLat; simCurrentLon += stepLon; stepsTaken++;
                     document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
                     document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
                 } else {
-                    simCurrentLat = targetCoord.lat; simCurrentLon = targetCoord.lon;
+                    simCurrentLat = targetCoord.lat; simCurrentLon = targetCoord.lon; 
                     document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
                     document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
                     stopInterval(simIntervalID_movement); simIntervalID_movement = null;
                     simMovementActive = false;
                     if (isSimulationRunning) document.getElementById("simMovementStatus").textContent = "Reached Target";
                 }
-            }, 1000);
+            }, 1000); 
         }
+
         function startSimulatedCacheSpam(targetCacheName) {
-            let hostUrl = `https://${targetCacheName}/Eldorado/4sec/avc/7500000/seg-1.m4s`;
-            function sendSpamRequest() { if(isSimulationRunning) fetch(hostUrl).catch(err => {}); }
+            if (!CACHE_COORDS[targetCacheName]) {
+                console.warn(`[SPAM] Target cache ${targetCacheName} not found in CACHE_COORDS.`);
+                simSpamActive = false; document.getElementById("simSpamStatus").textContent = "Error: Target Invalid";
+                return;
+            }
+            
+            let hostUrl = `https://${targetCacheName}/Eldorado/4sec/avc/7500000/seg-1.m4s?spam_ts=${Date.now()}`; 
+            function sendSpamRequest() { if(isSimulationRunning && simSpamActive) fetch(hostUrl).catch(err => {}); } 
             if (simIntervalID_spam) clearInterval(simIntervalID_spam);
-            simIntervalID_spam = setInterval(sendSpamRequest, 100);
+            simIntervalID_spam = setInterval(sendSpamRequest, 100); 
          }
         
         function reportLocationToSteering(lat, lon) {
@@ -347,11 +389,11 @@
                 headers: { "Content-type": "application/json; charset=UTF-8" }
             }).catch(error => console.warn("[CLIENT] Fetch (location) to /coords failed:", error));
         }
+
         function reportLatencyToSteering(lat, lon, latency, serverUsed) {
             if (!isSimulationRunning || lat === undefined || lon === undefined) return;
             if (latency === undefined || serverUsed === undefined) {
-                 // console.warn("[CLIENT_REPORT_LAT_DEBUG] Latency or ServerUsed is undefined. Not sending full report.", {latency, serverUsed}); // Kept as comment for potential future debug
-                 return;
+                 return; 
             }
             const payload = { time: simElapsedTime, lat: lat, long: lon, rt: latency, server_used: serverUsed };
             fetch("https://steering-service:30500/coords", {
@@ -368,15 +410,23 @@
         function _load() {
             let newMpdUrl = document.getElementById("manifest").value;
             if (!newMpdUrl) { alert("Please enter an MPD URL."); return; }
+
             manifestSuccessfullyLoaded = false;
             document.getElementById("button_StartControlledSim").disabled = true;
-            if (isSimulationRunning) stopCurrentSimulation(true);
-            setupPlayer();
-            _resetUIOnly();
+            if (isSimulationRunning) stopCurrentSimulation(true); 
+            
+            setupPlayer(); 
+            _resetUIOnly(); 
+
             try {
-                player.attachSource(newMpdUrl);
+                player.attachSource(newMpdUrl); 
+
+                
                 if (onManifestLoadedCallback && player) player.off(dashjs.MediaPlayer.events.MANIFEST_LOADED, onManifestLoadedCallback);
                 if (onManifestErrorCallback && player) player.off(dashjs.MediaPlayer.events.ERROR, onManifestErrorCallback);
+                if (onStreamInitForAutomaticPlay && player) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForAutomaticPlay);
+
+
                 onManifestLoadedCallback = function(e) {
                     if(e.error) {
                         console.error("[CLIENT_LOAD] Error during MANIFEST_LOADED event:", e.error.message || e.error);
@@ -384,22 +434,55 @@
                         document.getElementById("button_StartControlledSim").disabled = true;
                     } else {
                         manifestSuccessfullyLoaded = true;
-                        document.getElementById("button_StartControlledSim").disabled = false;
+                        console.log("[CLIENT_LOAD] Manifest loaded successfully.");
+                        const autoStartEnabled = document.getElementById("autoStartCheckbox").checked;
+
+                        if (autoStartEnabled) {
+                            console.log("[CLIENT_LOAD] Auto-start enabled. Attempting to start simulation.");
+                            
+                            onStreamInitForAutomaticPlay = function() {
+                                if (player.getActiveStream()) { 
+                                    if (manifestSuccessfullyLoaded && !isSimulationRunning) {
+                                        startControlledSimulation();
+                                    }
+                                } else {
+                                     console.warn("[CLIENT_LOAD_AUTO] STREAM_INITIALIZED event fired, but no active stream. Not auto-starting.");
+                                }
+                                if (player) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForAutomaticPlay); 
+                            };
+                            
+                            if (player.getActiveStream() && player.isReady()) { 
+                                onStreamInitForAutomaticPlay();
+                            } else if (player.isReady()){ 
+                                player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForAutomaticPlay, null, { once: true });
+                            } else {
+                                console.warn("[CLIENT_LOAD_AUTO] Player not ready after manifest load. Auto-start may fail or be delayed.");
+                                
+                                
+                                
+                                document.getElementById("button_StartControlledSim").disabled = false; 
+                            }
+                        } else {
+                            
+                            document.getElementById("button_StartControlledSim").disabled = false;
+                        }
                     }
                 };
                 player.on(dashjs.MediaPlayer.events.MANIFEST_LOADED, onManifestLoadedCallback, null, {once: true});
-                onManifestErrorCallback = function(e) {
-                    if (e.error && (e.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE ||
-                                    e.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_LOADING_FAILURE_ERROR_CODE ||
-                                    e.error.code === dashjs.MediaPlayer.errors.DOWNLOAD_ERROR_ID_MANIFEST)) {
-                        console.error("[CLIENT_LOAD] FAILED to load/parse MPD (ERROR event):", e.error.message);
+
+                onManifestErrorCallback = function(e) { 
+                    if (e.error && (e.error.code === dashjs.MediaPlayer.events.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE ||
+                                    e.error.code === dashjs.MediaPlayer.events.MANIFEST_LOADER_LOADING_FAILURE_ERROR_CODE ||
+                                    e.error.code === dashjs.MediaPlayer.events.DOWNLOAD_ERROR_ID_MANIFEST)) {
+                        console.error("[CLIENT_LOAD] FAILED to load/parse MPD (ERROR event):", e.error.message || e.error);
                         manifestSuccessfullyLoaded = false;
                         document.getElementById("button_StartControlledSim").disabled = true;
                     }
                 };
                 player.on(dashjs.MediaPlayer.events.ERROR, onManifestErrorCallback, null, {once: true});
+
             } catch (error) {
-                 console.error("[CLIENT] Critical error during player.attachSource():", error);
+                 console.error("[CLIENT_LOAD] Critical error during player.attachSource():", error);
                  manifestSuccessfullyLoaded = false;
                  document.getElementById("button_StartControlledSim").disabled = true;
             }
@@ -408,17 +491,15 @@
         function _onFragmentLoadingStarted(e) {
             try {
                 if (e && e.mediaType && (e.mediaType === "video" || e.mediaType === "audio") && e.request) {
-                    const key = e.mediaType;
+                    const key = e.mediaType + "_" + e.request.index; 
                     if (e.request.serviceLocation) {
                         fragmentLoadStarts[key] = {
                             startTime: performance.now(),
                             serviceLocation: e.request.serviceLocation,
                             url: e.request.url
                         };
-                        currentSegmentServiceLocation[e.mediaType] = e.request.serviceLocation;
+                        currentSegmentServiceLocation[e.mediaType] = e.request.serviceLocation; 
                         _updateActiveServerIcons();
-                    } else {
-                        console.warn(`[CLIENT_FRAG_START] ${key} loading started but no serviceLocation in request.`);
                     }
                 }
             } catch (err) { console.error("[CLIENT] Error in _onFragmentLoadingStarted:", err); }
@@ -426,25 +507,20 @@
         
         function _onFragmentLoadingCompleted(e) {
             try {
-                const key = e.mediaType;
+                const key = e.mediaType + "_" + e.request.index; 
                 if (e && e.request && fragmentLoadStarts[key]) {
                     const loadInfo = fragmentLoadStarts[key];
                     const endTime = performance.now();
                     const latencyMs = Math.round(endTime - loadInfo.startTime);
                     const serverUsed = loadInfo.serviceLocation;
                     
-                    delete fragmentLoadStarts[key];
+                    delete fragmentLoadStarts[key]; 
 
                     if (isSimulationRunning) {
                         if (simCurrentLat !== undefined && simCurrentLon !== undefined) {
                             reportLatencyToSteering(simCurrentLat, simCurrentLon, latencyMs, serverUsed);
-                        } else {
-                             console.warn("[CLIENT_FRAG_COMPLETE] Lat/Lon undefined, cannot report latency for this fragment.");
                         }
                     }
-                } else {
-                    // This warning was very specific to debugging the latency calculation logic
-                    // console.warn("[CLIENT_FRAG_COMPLETE] Conditions not met for manual latency calculation or no start info.", {hasE: !!e, hasReq: !!(e && e.request), startInfo: fragmentLoadStarts[key]});
                 }
             } catch (err) { console.error("[CLIENT] Error in _onFragmentLoadingCompleted:", err); }
         }

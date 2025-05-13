@@ -1,1 +1,0 @@
-timestamp_server,sim_time_client,client_lat,client_lon,server_used_for_latency,experienced_latency_ms,steering_decision_main_server,rl_counts_json,rl_values_json

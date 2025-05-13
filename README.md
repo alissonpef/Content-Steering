@@ -1,7 +1,7 @@
 # Content Steering with Reinforcement Learning: VM Simulation
 
 **See it in action!** Watch a video demonstrating the project's functionality:
-[▶️ Watch the Demo Video](https://www.youtube.com/watch?v=LHX0iUvxh3o&ab_channel=AlissonPereira%7CDev) 
+[▶️ Watch the Demo Video](https://youtu.be/PRRD5ed86K0) 
 
 This project demonstrates the application of Content Steering, using the DASH protocol and Reinforcement Learning (Epsilon-Greedy), to optimize cache server selection in a simulated video streaming environment. The testing and simulation environment is configured for execution within the provided VirtualBox VM.
 
@@ -83,11 +83,30 @@ Follow these instructions **inside the VirtualBox VM**, in the updated project r
     sudo pip3 install -r steering-service/requirements.txt
     ```
 
-    b.  **Run `app.py`:**
-        Still in the project root directory (`content-steering/`). The `tutorial` password may be requested if the `tutorial` user does not have permission to access the Docker socket (usually resolved by adding the user to the `docker` group or running with `sudo`):
+    b.  **Run `app.py` specifying the desired steering strategy:**
+        Still in the project root directory (`content-steering/`). The `tutorial` password may be requested.
+        Choose **one** of the following commands to start the service:
+
+    **UCB1:**
     ```bash
-    sudo python3 steering-service/src/app.py
+        sudo python3 steering-service/src/app.py --strategy ucb1
     ```
+
+    **Epsilon-Greedy:**
+    ```bash
+        sudo python3 steering-service/src/app.py --strategy epsilon_greedy
+    ```
+
+    **Random Selection:**
+    ```bash
+        sudo python3 steering-service/src/app.py --strategy random
+    ```
+
+    **No Steering:**
+    ```bash
+        sudo python3 steering-service/src/app.py --strategy no_steering
+    ```
+
     You should see messages indicating the Flask server is running. Keep this terminal open.
 
 ### Terminal 2: Serve the Client Interface (HTML Player)
