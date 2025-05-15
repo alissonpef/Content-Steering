@@ -1,7 +1,7 @@
 # Content Steering with Reinforcement Learning: VM Simulation
 
 **See it in action!** Watch a video demonstrating the project's functionality:
-[▶️ Watch the Demo Video](https://youtu.be/PRRD5ed86K0) 
+[▶️ Watch the Demo Video](https://www.youtube.com/watch?v=DSD8DpCHHQM) 
 
 This project demonstrates the application of Content Steering, using the DASH protocol and Reinforcement Learning (Epsilon-Greedy), to optimize cache server selection in a simulated video streaming environment. The testing and simulation environment is configured for execution within the provided VirtualBox VM.
 
@@ -141,10 +141,27 @@ Follow these instructions **inside the VirtualBox VM**, in the updated project r
 
 2.  **Run the Graph Generation Script:**
     In the terminal, from the project root directory (`content-steering/`):
-    ```bash
-    python3 Generate_graphs.py
-    ```
-    The graph images will be saved in `~/Documents/content-steering/Files/Img/`. 
+
+    *   **To process a specific log file:**
+        Replace `your_log_file.csv` with the actual name of the CSV file located in `~/Documents/content-steering/Files/Data/`.
+        ```bash
+        python3 Generate_graphs.py your_log_file.csv
+        ```
+        For example:
+        ```bash
+        python3 Generate_graphs.py log_epsilon_greedy.csv
+        python3 Generate_graphs.py log_ucb1.csv
+        python3 Generate_graphs.py log_no_steering.csv
+        python3 Generate_graphs.py log_random.csv
+        ```
+
+    *   **To process all `.csv` files in the `Files/Data/` directory:**
+        If you run the script without any arguments, it will attempt to process every CSV file it finds in `~/Documents/content-steering/Files/Data/`.
+        ```bash
+        python3 Generate_graphs.py
+        ```
+
+    The graph images will be saved in `~/Documents/content-steering/Files/Img/`, inside a subdirectory named after each processed CSV file (e.g., `~/Documents/content-steering/Files/Img/log_epsilon_greedy_simulation1/`).
 
 ---
 
