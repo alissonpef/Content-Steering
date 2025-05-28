@@ -41,15 +41,17 @@
                     <input type="number" step="any" id="initialSimLon" value="-40.0" class="form-control form-control-sm d-inline-block" style="width: 90px;">
                 </div>
             </div>
+            <!-- Movimento (Apenas 1 agora) -->
             <div class="row mb-2 align-items-center">
                 <div class="col-md-6">
-                    <label for="simMovementTarget_1">Movement 1:</label>
-                    <select id="simMovementTarget_1" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                    <label for="simMovementTarget">Movement:</label>
+                    <select id="simMovementTarget" class="form-select form-select-sm d-inline-block" style="width: auto;">
                         <option value="none">Stay Still</option>
                     </select>
-                    Start @ <input type="number" id="simMovementStartTime_1" value="10" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement 1: Start after X seconds">s
-                    Duration <input type="number" id="simMovementDuration_1" value="30" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement 1: Time in seconds to reach target">s
+                    Start @ <input type="number" id="simMovementStartTime" value="10" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement: Start after X seconds">s
+                    Duration <input type="number" id="simMovementDuration" value="30" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement: Time in seconds to reach target">s
                 </div>
+            <!-- Spam Cache 1 -->
                 <div class="col-md-6">
                     <label for="simSpamTarget_1">Spam Cache 1:</label>
                     <select id="simSpamTarget_1" class="form-select form-select-sm d-inline-block" style="width: auto;">
@@ -59,15 +61,10 @@
                     for <input type="number" id="simSpamDuration_1" value="20" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 1: Duration in seconds">s
                 </div>
             </div>
+             <!-- Spam Cache 2 -->
             <div class="row mb-3 align-items-center">
-                <div class="col-md-6">
-                    <label for="simMovementTarget_2">Movement 2:</label>
-                    <select id="simMovementTarget_2" class="form-select form-select-sm d-inline-block" style="width: auto;">
-                        <option value="none">No Movement</option>
-                    </select>
-                    Start @ <input type="number" id="simMovementStartTime_2" value="70" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement 2: Start after X seconds">s
-                    Duration <input type="number" id="simMovementDuration_2" value="30" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement 2: Time in seconds to reach target">s
-                </div>
+                 <div class="col-md-6">
+                 </div>
                 <div class="col-md-6">
                     <label for="simSpamTarget_2">Spam Cache 2:</label>
                     <select id="simSpamTarget_2" class="form-select form-select-sm d-inline-block" style="width: auto;">
@@ -101,7 +98,7 @@
                 Sim Time: <span id="simCurrentTimeDisplay">0</span>s <br>
                 Client Pos: Lat <input type="text" id="current-latitude" class="form-control-sm" style="width:90px;" readonly/>,
                 Lon <input type="text" id="current-longitude" class="form-control-sm" style="width:90px;" readonly /> <br>
-                Movement 1: <span id="simMovementStatus_1">Inactive</span> | Movement 2: <span id="simMovementStatus_2">Inactive</span> <br>
+                Movement: <span id="simMovementStatus">Inactive</span> <br>
                 Spam 1: <span id="simSpamStatus_1">Inactive</span> | Spam 2: <span id="simSpamStatus_2">Inactive</span>
             </div>
           </div>
@@ -137,18 +134,17 @@
             "video-streaming-cache-2": { lat: -33.0, lon: -71.0, label: "Cache 2 (CL)" },
             "video-streaming-cache-3": { lat:  5.0,  lon: -74.0, label: "Cache 3 (CO)" }
         };
-        const LATENCY_MS_PER_KM = 0.1;
+        const LATENCY_MS_PER_KM = 0.0;
 
         let simTimer = null;
         let simElapsedTime = 0;
 
-        let simMovementActive_1 = false, simMovementActive_2 = false;
-        let simSpamActive_1 = false, simSpamActive_2 = false;
-        let simIntervalID_movement_1 = null, simIntervalID_movement_2 = null;
-        let simIntervalID_spam_1 = null, simIntervalID_spam_2 = null;
+        let simMovementActive = false;
+        let simIntervalID_movement = null;
+        let movementStarted = false;
 
-        let movementStarted_1 = false; 
-        let movementStarted_2 = false; 
+        let simSpamActive_1 = false, simSpamActive_2 = false;
+        let simIntervalID_spam_1 = null, simIntervalID_spam_2 = null;
 
         let simCurrentLat, simCurrentLon;
         let isSimulationRunning = false;
@@ -216,9 +212,8 @@
             document.getElementById("button_StopSim").addEventListener("click", stopCurrentSimulation);
             document.getElementById("button_ResetSimUI").addEventListener("click", resetSimulationUIAndState);
 
-            populateSelect("simMovementTarget_1", "Stay Still");
+            populateSelect("simMovementTarget", "Stay Still");
             populateSelect("simSpamTarget_1", "No Spam");
-            populateSelect("simMovementTarget_2", "No Movement");
             populateSelect("simSpamTarget_2", "No Spam");
 
             const cdnContainer = document.getElementById("cdn-selection-container");
@@ -248,16 +243,13 @@
             isSimulationRunning = false;
             if (simTimer) { clearInterval(simTimer); simTimer = null; }
 
-            stopInterval(simIntervalID_movement_1); simIntervalID_movement_1 = null;
-            stopInterval(simIntervalID_movement_2); simIntervalID_movement_2 = null;
+            stopInterval(simIntervalID_movement); simIntervalID_movement = null;
             stopInterval(simIntervalID_spam_1); simIntervalID_spam_1 = null;
             stopInterval(simIntervalID_spam_2); simIntervalID_spam_2 = null;
 
-            simMovementActive_1 = false; simMovementActive_2 = false;
+            simMovementActive = false;
+            movementStarted = false;
             simSpamActive_1 = false; simSpamActive_2 = false;
-            movementStarted_1 = false; 
-            movementStarted_2 = false;
-
 
             if (pausePlayerAndSeek && player && manifestSuccessfullyLoaded) {
                 if (player.isReady() && !player.isPaused()) {
@@ -269,8 +261,7 @@
             }
             document.getElementById("button_StartControlledSim").disabled = !manifestSuccessfullyLoaded;
             document.getElementById("button_StopSim").disabled = true;
-            document.getElementById("simMovementStatus_1").textContent = "Inactive";
-            document.getElementById("simMovementStatus_2").textContent = "Inactive";
+            document.getElementById("simMovementStatus").textContent = "Inactive";
             document.getElementById("simSpamStatus_1").textContent = "Inactive";
             document.getElementById("simSpamStatus_2").textContent = "Inactive";
         }
@@ -291,17 +282,15 @@
             currentSegmentServiceLocation = { audio: null, video: null };
             _updateActiveServerIcons();
             fragmentLoadStarts = {};
-            document.getElementById("simMovementStatus_1").textContent = "Inactive";
-            document.getElementById("simMovementStatus_2").textContent = "Inactive";
+            document.getElementById("simMovementStatus").textContent = "Inactive";
             document.getElementById("simSpamStatus_1").textContent = "Inactive";
             document.getElementById("simSpamStatus_2").textContent = "Inactive";
-            movementStarted_1 = false; 
-            movementStarted_2 = false;
+            movementStarted = false;
          }
 
         function resetSimulationUIAndState() {
-            stopCurrentSimulation(true); 
-            _resetUIOnly(); 
+            stopCurrentSimulation(true);
+            _resetUIOnly();
             document.getElementById("button_StartControlledSim").disabled = true;
         }
 
@@ -317,16 +306,13 @@
 
             console.log("[SIM_START] Starting controlled simulation...");
             simElapsedTime = 0;
-            
-            simMovementActive_1 = false; simSpamActive_1 = false;
-            simMovementActive_2 = false; simSpamActive_2 = false;
-            movementStarted_1 = false;
-            movementStarted_2 = false;
+            simMovementActive = false; movementStarted = false;
+            simSpamActive_1 = false; simSpamActive_2 = false;
 
-            stopInterval(simIntervalID_movement_1); simIntervalID_movement_1 = null;
+            stopInterval(simIntervalID_movement); simIntervalID_movement = null;
             stopInterval(simIntervalID_spam_1);    simIntervalID_spam_1 = null;
-            stopInterval(simIntervalID_movement_2); simIntervalID_movement_2 = null;
             stopInterval(simIntervalID_spam_2);    simIntervalID_spam_2 = null;
+
 
             if (simTimer) { clearInterval(simTimer); simTimer = null; }
             document.getElementById("simCurrentTimeDisplay").textContent = "0";
@@ -365,16 +351,13 @@
 
             const duration = parseInt(document.getElementById("simDuration").value) || 120;
 
-            const movementTarget_1 = document.getElementById("simMovementTarget_1").value;
-            const movementStartTime_1 = parseInt(document.getElementById("simMovementStartTime_1").value);
-            const desiredMovementDuration_1 = parseInt(document.getElementById("simMovementDuration_1").value) || 30;
+            const movementTarget = document.getElementById("simMovementTarget").value;
+            const movementStartTime = parseInt(document.getElementById("simMovementStartTime").value);
+            const desiredMovementDuration = parseInt(document.getElementById("simMovementDuration").value) || 30;
+
             const spamTarget_1 = document.getElementById("simSpamTarget_1").value;
             const spamStartTime_1 = parseInt(document.getElementById("simSpamStartTime_1").value);
             const spamDuration_1 = parseInt(document.getElementById("simSpamDuration_1").value);
-
-            const movementTarget_2 = document.getElementById("simMovementTarget_2").value;
-            const movementStartTime_2 = parseInt(document.getElementById("simMovementStartTime_2").value);
-            const desiredMovementDuration_2 = parseInt(document.getElementById("simMovementDuration_2").value) || 30;
             const spamTarget_2 = document.getElementById("simSpamTarget_2").value;
             const spamStartTime_2 = parseInt(document.getElementById("simSpamStartTime_2").value);
             const spamDuration_2 = parseInt(document.getElementById("simSpamDuration_2").value);
@@ -385,8 +368,7 @@
             if(isNaN(simCurrentLon)) simCurrentLon = -40.0;
             document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
             document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
-            document.getElementById("simMovementStatus_1").textContent = "Inactive";
-            document.getElementById("simMovementStatus_2").textContent = "Inactive";
+            document.getElementById("simMovementStatus").textContent = "Inactive";
             document.getElementById("simSpamStatus_1").textContent = "Inactive";
             document.getElementById("simSpamStatus_2").textContent = "Inactive";
 
@@ -395,40 +377,17 @@
                 simElapsedTime++;
                 document.getElementById("simCurrentTimeDisplay").textContent = simElapsedTime;
 
-                
-                if (movementTarget_1 !== "none" && simElapsedTime >= movementStartTime_1 && !movementStarted_1) {
-                    movementStarted_1 = true; 
-                    if (simMovementActive_2) {
-                        console.log("Movement 1 starting: Interrupting active Movement 2.");
-                        stopInterval(simIntervalID_movement_2); simIntervalID_movement_2 = null;
-                        simMovementActive_2 = false;
-                        document.getElementById("simMovementStatus_2").textContent = "Interrupted by M1";
-                    }
-                    simMovementActive_1 = true;
+                if (movementTarget !== "none" && simElapsedTime >= movementStartTime && !movementStarted) {
+                    movementStarted = true;
+                    simMovementActive = true;
                     let timeRemainingInSim = duration - simElapsedTime;
-                    let effectiveMoveDuration = Math.max(1, Math.min(desiredMovementDuration_1, timeRemainingInSim));
-                    console.log(`Movement 1: Target=${movementTarget_1}, StartTime=${movementStartTime_1}, EffectiveDuration=${effectiveMoveDuration}s`);
-                    startSimulatedMovement(movementTarget_1, simCurrentLat, simCurrentLon, effectiveMoveDuration, 1);
-                    document.getElementById("simMovementStatus_1").textContent = `Moving (to ${CACHE_COORDS[movementTarget_1]?.label || movementTarget_1})`;
-                }
-                
-                if (movementTarget_2 !== "none" && simElapsedTime >= movementStartTime_2 && !movementStarted_2) {
-                    movementStarted_2 = true; 
-                     if (simMovementActive_1) {
-                        console.log("Movement 2 starting: Interrupting active Movement 1.");
-                        stopInterval(simIntervalID_movement_1); simIntervalID_movement_1 = null;
-                        simMovementActive_1 = false;
-                        document.getElementById("simMovementStatus_1").textContent = "Interrupted by M2";
-                    }
-                    simMovementActive_2 = true;
-                    let timeRemainingInSim = duration - simElapsedTime;
-                    let effectiveMoveDuration = Math.max(1, Math.min(desiredMovementDuration_2, timeRemainingInSim));
-                    console.log(`Movement 2: Target=${movementTarget_2}, StartTime=${movementStartTime_2}, EffectiveDuration=${effectiveMoveDuration}s`);
-                    startSimulatedMovement(movementTarget_2, simCurrentLat, simCurrentLon, effectiveMoveDuration, 2);
-                    document.getElementById("simMovementStatus_2").textContent = `Moving (to ${CACHE_COORDS[movementTarget_2]?.label || movementTarget_2})`;
+                    let effectiveMoveDuration = Math.max(1, Math.min(desiredMovementDuration, timeRemainingInSim));
+                    console.log(`Movement: Target=${movementTarget}, StartTime=${movementStartTime}, EffectiveDuration=${effectiveMoveDuration}s`);
+                    startSimulatedMovement(movementTarget, simCurrentLat, simCurrentLon, effectiveMoveDuration);
+                    document.getElementById("simMovementStatus").textContent = `Moving (to ${CACHE_COORDS[movementTarget]?.label || movementTarget})`;
                 }
 
-                
+                // --- Spam 1 ---
                 if (spamTarget_1 !== "none" && simElapsedTime >= spamStartTime_1 && !simSpamActive_1) {
                     simSpamActive_1 = true;
                     startSimulatedCacheSpam(spamTarget_1, 1);
@@ -439,7 +398,7 @@
                     simSpamActive_1 = false;
                     document.getElementById("simSpamStatus_1").textContent = "Inactive";
                 }
-                
+                // --- Spam 2 ---
                 if (spamTarget_2 !== "none" && simElapsedTime >= spamStartTime_2 && !simSpamActive_2) {
                     simSpamActive_2 = true;
                     startSimulatedCacheSpam(spamTarget_2, 2);
@@ -458,46 +417,25 @@
             }, 1000);
         }
 
-        function startSimulatedMovement(targetCacheName, initialClientLat, initialClientLon, moveDurationSec, phaseId) {
+        function startSimulatedMovement(targetCacheName, initialClientLat, initialClientLon, moveDurationSec) {
             if (!CACHE_COORDS[targetCacheName]) {
-                console.warn(`[MOVEMENT ${phaseId}] Target cache ${targetCacheName} not found.`);
-                if (phaseId === 1) { simMovementActive_1 = false; document.getElementById("simMovementStatus_1").textContent = "Error"; }
-                else { simMovementActive_2 = false; document.getElementById("simMovementStatus_2").textContent = "Error"; }
+                console.warn(`[MOVEMENT] Target cache ${targetCacheName} not found.`);
+                simMovementActive = false; document.getElementById("simMovementStatus").textContent = "Error";
                 return;
             }
             const targetCoord = CACHE_COORDS[targetCacheName];
             const totalSteps = moveDurationSec > 0 ? Math.max(1, Math.floor(moveDurationSec)) : 1;
-            
+
             const stepLat = (targetCoord.lat - initialClientLat) / totalSteps;
             const stepLon = (targetCoord.lon - initialClientLon) / totalSteps;
             let stepsTaken = 0;
 
-            let myIntervalSetter, myIntervalClearer, myActiveFlagGetter, myActiveFlagSetter, statusElementId;
-
-            if (phaseId === 1) {
-                if (simIntervalID_movement_1) clearInterval(simIntervalID_movement_1);
-                simIntervalID_movement_1 = null;
-                myIntervalSetter = (id) => simIntervalID_movement_1 = id;
-                myIntervalClearer = () => { stopInterval(simIntervalID_movement_1); simIntervalID_movement_1 = null; };
-                myActiveFlagGetter = () => simMovementActive_1; 
-                myActiveFlagSetter = (val) => simMovementActive_1 = val;
-                statusElementId = "simMovementStatus_1";
-            } else { 
-                if (simIntervalID_movement_2) clearInterval(simIntervalID_movement_2);
-                simIntervalID_movement_2 = null;
-                myIntervalSetter = (id) => simIntervalID_movement_2 = id;
-                myIntervalClearer = () => { stopInterval(simIntervalID_movement_2); simIntervalID_movement_2 = null; };
-                myActiveFlagGetter = () => simMovementActive_2;
-                myActiveFlagSetter = (val) => simMovementActive_2 = val;
-                statusElementId = "simMovementStatus_2";
-            }
+            if (simIntervalID_movement) clearInterval(simIntervalID_movement);
+            simIntervalID_movement = null;
 
             const intervalFunc = () => {
-                let currentIntervalId = (phaseId === 1) ? simIntervalID_movement_1 : simIntervalID_movement_2;
-                if (!isSimulationRunning || !myActiveFlagGetter() || !currentIntervalId ) {
-                    
-                    
-                    myIntervalClearer(); 
+                if (!isSimulationRunning || !simMovementActive || !simIntervalID_movement) {
+                    stopInterval(simIntervalID_movement); simIntervalID_movement = null;
                     return;
                 }
 
@@ -508,18 +446,18 @@
 
                     document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
                     document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
-                } else { 
+                } else {
                     simCurrentLat = targetCoord.lat;
                     simCurrentLon = targetCoord.lon;
                     document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
                     document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
 
-                    myIntervalClearer();
-                    myActiveFlagSetter(false); 
-                    if(isSimulationRunning) document.getElementById(statusElementId).textContent = "Reached Target";
+                    stopInterval(simIntervalID_movement); simIntervalID_movement = null;
+                    simMovementActive = false;
+                    if(isSimulationRunning) document.getElementById("simMovementStatus").textContent = "Reached Target";
                 }
             };
-            myIntervalSetter(setInterval(intervalFunc, 1000));
+            simIntervalID_movement = setInterval(intervalFunc, 1000);
         }
 
         function startSimulatedCacheSpam(targetCacheName, phaseId) {
@@ -545,7 +483,6 @@
                     myIntervalClearer();
                 }
             }
-
             if (currentSpamIntervalId) clearInterval(currentSpamIntervalId);
             setSpamIntervalId(setInterval(sendSpamRequest, 100));
          }
@@ -689,7 +626,6 @@
                         );
                         const distanceLatencyPenalty = Math.round(distanceKm * LATENCY_MS_PER_KM);
                         finalLatencyToReport = measuredLatencyMs + distanceLatencyPenalty;
-                        
                     }
 
                     if (isSimulationRunning) {

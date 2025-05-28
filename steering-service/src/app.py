@@ -350,7 +350,7 @@ if __name__ == "__main__":
 
     if args.strategy == "epsilon_greedy":
         current_selector_instance = EpsilonGreedy(
-            epsilon=0.3, counts={}, values={}, monitor=monitor
+            epsilon=0.1, counts={}, values={}, monitor=monitor
         )
     elif args.strategy == "no_steering":
         current_selector_instance = NoSteeringSelector(monitor=monitor)
@@ -365,7 +365,7 @@ if __name__ == "__main__":
         current_strategy_name = "epsilon_greedy"
         active_log_filename = os.path.join(LOG_DIR, f"log_{current_strategy_name}.csv")
         current_selector_instance = EpsilonGreedy(
-            epsilon=0.3, counts={}, values={}, monitor=monitor
+            epsilon=0.1, counts={}, values={}, monitor=monitor
         )
 
     setup_csv_logging(filename=active_log_filename)
