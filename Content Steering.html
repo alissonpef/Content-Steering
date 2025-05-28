@@ -41,7 +41,6 @@
                     <input type="number" step="any" id="initialSimLon" value="-40.0" class="form-control form-control-sm d-inline-block" style="width: 90px;">
                 </div>
             </div>
-            <!-- Movimento (Apenas 1 agora) -->
             <div class="row mb-2 align-items-center">
                 <div class="col-md-6">
                     <label for="simMovementTarget">Movement:</label>
@@ -51,7 +50,6 @@
                     Start @ <input type="number" id="simMovementStartTime" value="10" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement: Start after X seconds">s
                     Duration <input type="number" id="simMovementDuration" value="30" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement: Time in seconds to reach target">s
                 </div>
-            <!-- Spam Cache 1 -->
                 <div class="col-md-6">
                     <label for="simSpamTarget_1">Spam Cache 1:</label>
                     <select id="simSpamTarget_1" class="form-select form-select-sm d-inline-block" style="width: auto;">
@@ -61,7 +59,6 @@
                     for <input type="number" id="simSpamDuration_1" value="20" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 1: Duration in seconds">s
                 </div>
             </div>
-             <!-- Spam Cache 2 -->
             <div class="row mb-3 align-items-center">
                  <div class="col-md-6">
                  </div>
@@ -387,7 +384,6 @@
                     document.getElementById("simMovementStatus").textContent = `Moving (to ${CACHE_COORDS[movementTarget]?.label || movementTarget})`;
                 }
 
-                // --- Spam 1 ---
                 if (spamTarget_1 !== "none" && simElapsedTime >= spamStartTime_1 && !simSpamActive_1) {
                     simSpamActive_1 = true;
                     startSimulatedCacheSpam(spamTarget_1, 1);
@@ -398,7 +394,6 @@
                     simSpamActive_1 = false;
                     document.getElementById("simSpamStatus_1").textContent = "Inactive";
                 }
-                // --- Spam 2 ---
                 if (spamTarget_2 !== "none" && simElapsedTime >= spamStartTime_2 && !simSpamActive_2) {
                     simSpamActive_2 = true;
                     startSimulatedCacheSpam(spamTarget_2, 2);

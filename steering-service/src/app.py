@@ -16,17 +16,15 @@ from selector import EpsilonGreedy, RandomSelector, NoSteeringSelector, UCB1Sele
 
 STEERING_PORT = 30500
 
-
 selector_instance = None
 selector_initialized = False
 last_steering_main_server_decision = "N/A"
-current_strategy_name = "N/A"
+current_strategy_name = "N/A" 
 
-PROJECT_ROOT_DIR = os.path.dirname(
+PROJECT_ROOT_DIR = os.path.dirname( 
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
-LOG_DIR = os.path.join(PROJECT_ROOT_DIR, "Files", "Data")
-CSV_FILENAME = os.path.join(LOG_DIR, "simulation_log.csv")
+LOG_DIR = os.path.join(PROJECT_ROOT_DIR, "Graphics", "Logs") 
 CSV_HEADERS = [
     "timestamp_server",
     "sim_time_client",
@@ -40,60 +38,46 @@ CSV_HEADERS = [
     "rl_values_json",
 ]
 
+active_log_filename = None 
 
-def setup_csv_logging(filename=CSV_FILENAME):
+def setup_csv_logging(filename):
     try:
         os.makedirs(LOG_DIR, exist_ok=True)
-        file_exists = os.path.exists(filename)
-        is_empty = False
-        if file_exists:
-            is_empty = os.path.getsize(filename) == 0
-
-        if not file_exists or is_empty:
-            with open(filename, mode="w", newline="") as file:
-                writer = csv.writer(file)
-                writer.writerow(CSV_HEADERS)
-        else:
-
-            with open(filename, mode="r", newline="") as file:
-                reader = csv.reader(file)
-                try:
-                    existing_headers = next(reader)
-                    if existing_headers != CSV_HEADERS:
-                        print(
-                            f"[LOGGING_APP] WARNING: CSV headers mismatch in {filename}."
-                        )
-                        print(f"Expected: {CSV_HEADERS}")
-                        print(f"Found: {existing_headers}")
-
-                except StopIteration:
-                    with open(filename, mode="w", newline="") as file_w:
-                        writer = csv.writer(file_w)
-                        writer.writerow(CSV_HEADERS)
-
+        with open(filename, mode="w", newline="") as file: 
+            writer = csv.writer(file)
+            writer.writerow(CSV_HEADERS)
+        print(f"[LOGGING_APP] CSV log an d headers set up for {filename}")
     except Exception as e:
         print(
             f"[LOGGING_APP] CRITICAL ERROR setting up CSV logging for {filename}: {e}"
         )
 
 
-def log_data_to_csv(data_dict, filename=CSV_FILENAME):
-
+def log_data_to_csv(data_dict, filename): 
     row_to_write = [data_dict.get(header) for header in CSV_HEADERS]
     try:
-        with open(filename, mode="a", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerow(row_to_write)
+        file_exists = os.path.exists(filename)
+        if not file_exists or (file_exists and os.path.getsize(filename) == 0) :
+             with open(filename, mode="a", newline="") as file: 
+                writer = csv.writer(file)
+                if not file_exists or os.path.getsize(filename) == 0:
+                    writer.writerow(CSV_HEADERS)
+                writer.writerow(row_to_write)
+        else:
+            with open(filename, mode="a", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(row_to_write)
+
     except Exception as e:
         print(f"[LOGGING_APP] Error writing to CSV {filename}: {e}")
 
 
 class Main:
-    def __init__(self, selected_selector_instance, strategy_name, log_filename):
+    def __init__(self, selected_selector_instance, strategy_name_arg, log_filename_to_use):
         global selector_instance, current_strategy_name, active_log_filename
         selector_instance = selected_selector_instance
-        current_strategy_name = strategy_name
-        active_log_filename = log_filename
+        current_strategy_name = strategy_name_arg
+        active_log_filename = log_filename_to_use
 
         self.app = Flask(__name__)
         CORS(self.app)
@@ -282,6 +266,7 @@ class Main:
                     return "Invalid data: Missing location or latency info", 400
 
     def run(self):
+        global current_strategy_name 
         current_script_dir = os.path.dirname(os.path.abspath(__file__))
         project_base_dir_for_certs = os.path.dirname(current_script_dir)
         ssl_context_cert = os.path.join(
@@ -316,7 +301,16 @@ class Main:
 
 dash_parser = DashParser()
 monitor = ContainerMonitor()
-active_log_filename = CSV_FILENAME
+
+def get_unique_log_filename(base_filename_without_ext, suffix_arg, directory=LOG_DIR):
+    base_with_suffix = f"{base_filename_without_ext}{suffix_arg}"
+    counter = 1
+    while True:
+        numbered_filename = f"{base_with_suffix}_{counter}.csv"
+        candidate_filename = os.path.join(directory, numbered_filename)
+        if not os.path.exists(candidate_filename):
+            return candidate_filename
+        counter += 1
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -333,24 +327,21 @@ if __name__ == "__main__":
         "--log_suffix",
         type=str,
         default="",
-        help="Suffix to append to the log file name (e.g., _run1, _mobile_stress). Default is 'simulation_log.csv'.",
+        help="Suffix to append to the log file name (e.g., _runA, _mobile_stress).",
     )
     args = parser.parse_args()
 
-    current_strategy_name = args.strategy
+    current_strategy_name = args.strategy 
     print(f"[STEERING_APP] Using strategy: {current_strategy_name}")
 
-    if args.log_suffix:
-        active_log_filename = os.path.join(
-            LOG_DIR, f"log_{current_strategy_name}{args.log_suffix}.csv"
-        )
-    else:
-        active_log_filename = os.path.join(LOG_DIR, f"log_{current_strategy_name}.csv")
+    log_base_name = f"log_{current_strategy_name}"
+    active_log_filename = get_unique_log_filename(log_base_name, args.log_suffix, directory=LOG_DIR)
+    
     print(f"[LOGGING_APP] Active log file: {active_log_filename}")
 
     if args.strategy == "epsilon_greedy":
         current_selector_instance = EpsilonGreedy(
-            epsilon=0.1, counts={}, values={}, monitor=monitor
+            epsilon=0.3, counts={}, values={}, monitor=monitor
         )
     elif args.strategy == "no_steering":
         current_selector_instance = NoSteeringSelector(monitor=monitor)
@@ -362,17 +353,18 @@ if __name__ == "__main__":
         print(
             f"CRITICAL: Unknown strategy '{args.strategy}'. Defaulting to EpsilonGreedy."
         )
-        current_strategy_name = "epsilon_greedy"
-        active_log_filename = os.path.join(LOG_DIR, f"log_{current_strategy_name}.csv")
+        current_strategy_name = "epsilon_greedy" 
+        log_base_name = f"log_{current_strategy_name}" 
+        active_log_filename = get_unique_log_filename(log_base_name, args.log_suffix, directory=LOG_DIR) 
         current_selector_instance = EpsilonGreedy(
-            epsilon=0.1, counts={}, values={}, monitor=monitor
+            epsilon=0.3, counts={}, values={}, monitor=monitor
         )
 
-    setup_csv_logging(filename=active_log_filename)
+    setup_csv_logging(filename=active_log_filename) 
     monitor.start_collecting()
 
     main_app_instance = Main(
-        current_selector_instance, current_strategy_name, active_log_filename
+        current_selector_instance, current_strategy_name, active_log_filename 
     )
 
     try:

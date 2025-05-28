@@ -135,33 +135,82 @@ Follow these instructions **inside the VirtualBox VM**, in the updated project r
 4.  **Data Collection:**
     During the simulation, the file `~/Documents/content-steering/Files/Data/simulation_log.csv` will be populated with simulation data. 
 
-### Generating Graphs (After Simulation)
+### Post-Simulation: Data Processing and Graph Generation
 
-1.  **Stop the Servers:** Press `Ctrl+C` in terminals 1 (Steering Service) and 2 (HTML Server).
+After running your simulations, individual log files (e.g., `log_<strategy_name>_<number>.csv` or `log_<strategy_name>_<suffix>_<number>.csv`) will be in `Graphics/Logs/`. The following steps guide you through processing these logs and generating various graphs. All graph-related scripts (`Generate_graphs.py`, `aggregate_logs.py`,`Generate_Aggregated_Graphs.py`, `Generate_compare_strategies.py`) are located in the `Graphics/` directory.
 
-2.  **Run the Graph Generation Script:**
-    In the terminal, from the project root directory (`content-steering/`):
+**First, navigate to the `Graphics` directory from your project root:**
+```bash
+cd Graphics/
+```
 
-    *   **To process a specific log file:**
-        Replace `your_log_file.csv` with the actual name of the CSV file located in `~/Documents/content-steering/Files/Data/`.
-        ```bash
-        python3 Generate_graphs.py your_log_file.csv
-        ```
-        For example:
-        ```bash
-        python3 Generate_graphs.py log_epsilon_greedy.csv
-        python3 Generate_graphs.py log_ucb1.csv
-        python3 Generate_graphs.py log_no_steering.csv
-        python3 Generate_graphs.py log_random.csv
-        ```
+**Step 1: Generate Detailed Graphs for Individual Simulation Runs (Optional)**
+Use `Generate_graphs.py` to create a comprehensive set of plots from a single, individual simulation log file. This helps analyze specific runs in detail. The script is in `Graphics/` and log files are in `Graphics/Logs/`.
 
-    *   **To process all `.csv` files in the `Files/Data/` directory:**
-        If you run the script without any arguments, it will attempt to process every CSV file it finds in `~/Documents/content-steering/Files/Data/`.
-        ```bash
-        python3 Generate_graphs.py
-        ```
+*   **To process a specific individual log file (examples run from `Graphics/` directory):**
+    ```bash
+    # For an Epsilon-Greedy run:
+    python3 Generate_graphs.py log_epsilon_greedy_1.csv 
+    # or (if it automatically adds .csv and finds in Logs/)
+    python3 Generate_graphs.py log_epsilon_greedy_1
 
-    The graph images will be saved in `~/Documents/content-steering/Files/Img/`, inside a subdirectory named after each processed CSV file (e.g., `~/Documents/content-steering/Files/Img/log_epsilon_greedy_simulation1/`).
+    # For a UCB1 run:
+    python3 Generate_graphs.py Logs/log_ucb1_1.csv
+
+    # For a No Steering run:
+    python3 Generate_graphs.py Logs/log_no_steering_1.csv
+
+    # For a Random run:
+    python3 Generate_graphs.py log_random_1.csv
+    ```
+*   If you run `python3 Generate_graphs.py` without arguments (while inside the `Graphics/` directory), it will attempt to process all `.csv` files found in `Graphics/Logs/` and `Graphics/Logs/Average/`.
+
+    Graphs for each processed file will be saved in a corresponding subdirectory within `Graphics/Img/` (e.g., `Graphics/Img/log_epsilon_greedy_1/`).
+
+**Step 2: Aggregate Multiple Log Files for Each Strategy**
+If you have run a particular strategy multiple times, use `aggregate_logs.py` to combine these into a single "average" log file. This script reads from `Graphics/Logs/` and saves the aggregated files into `Graphics/Logs/Average/`.
+
+*   **To aggregate logs for a specific strategy (run from `Graphics/` directory):**
+    ```bash
+    python3 aggregate_logs.py ucb1
+    python3 aggregate_logs.py epsilon_greedy
+    python3 aggregate_logs.py random
+    python3 aggregate_logs.py no_steering
+    ```
+    This will create files like `Graphics/Logs/Average/log_ucb1_average_1.csv`, `Graphics/Logs/Average/log_epsilon_greedy_average_1.csv`, etc.
+*   **If you used a `--log_suffix` (e.g., `_myTest`) for a set of runs:**
+    ```bash
+    python3 aggregate_logs.py ucb1 --suffix_pattern _myTest 
+    # This creates, for example, Graphics/Logs/Average/log_ucb1_myTest_average_1.csv
+    ```
+
+**Step 3: Generate Graphs from Aggregated Log Files (Optional, but Recommended for Averaged Insights)**
+Use `Generate_Aggregated_Graphs.py` to create a focused set of plots from a single *aggregated* `_average.csv` file.
+
+*   **To process a specific aggregated log file (run from `Graphics/` directory):**
+    ```bash
+    # Example for an aggregated UCB1 log:
+    python3 Generate_Aggregated_Graphs.py log_ucb1_average_1.csv
+    
+    # Example for an aggregated Epsilon-Greedy log:
+    python3 Generate_Aggregated_Graphs.py Logs/Average/log_epsilon_greedy_average_1.csv
+
+    # Example for an aggregated Random log:
+    python3 Generate_Aggregated_Graphs.py log_random_average_1.csv
+
+    # Example for an aggregated No Steering log:
+    python3 Generate_Aggregated_Graphs.py Logs/Average/log_no_steering_average_1.csv
+    ```
+    Graphs will be saved in a subdirectory within `Graphics/Img/` named after the aggregated CSV file (e.g., `Graphics/Img/log_ucb1_average_1/`).
+
+**Step 4: Generate a Single Graph Comparing Average Latencies Across All Strategies**
+After generating the `_average.csv` files for each strategy you wish to compare (and they are located in `Graphics/Logs/Average/`), use `Generate_compare_strategies.py`.
+
+*   **Run the script (it automatically finds relevant `*_average*.csv` files in `Graphics/Logs/Average/`). Run from `Graphics/` directory:**
+    ```bash
+    python3 Generate_compare_strategies.py
+    ```
+    A single comparison graph, `all_strategies_latency_comparison.png`, will be saved directly in `Graphics/Img/`.
 
 ---
 
