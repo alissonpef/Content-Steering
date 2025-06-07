@@ -37,8 +37,8 @@ class DynamicLatencyOracle:
         self.monitor = monitor
         self.server_latencies = {}
         self.server_base_latencies_config = {
-            "video-streaming-cache-1": 30, 
-            "video-streaming-cache-2": 25,
+            "video-streaming-cache-1": 30,
+            "video-streaming-cache-2": 25, 
             "video-streaming-cache-3": 50 
         }
         self.server_geo_coords = {}
