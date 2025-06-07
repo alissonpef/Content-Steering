@@ -1,0 +1,11 @@
+version: '3'
+services:
+  steering:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: eduardogama/steering:latest
+    ports:
+      - '30500:30500'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
