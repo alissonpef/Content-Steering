@@ -1,33 +1,44 @@
 import docker
 import threading
-
+import math
 
 # CLASS
 class ContainerMonitor:
     def __init__(self):
         self.client = docker.from_env()
         self.container_stats = {}
+        self.nodes = []
         self.interval = 2
+        self.choice_algorithm = None
+        self.latency_average = []
 
 
     def start_collecting(self):
         self.collect_stats()
 
-        # Schedule the next collection
         threading.Timer(self.interval, self.start_collecting).start()
 
 
     def collect_stats(self):
         for container in self.client.containers.list(all=True):
+            
             if container.status != 'running':
                 if container.name in self.container_stats:
                     del self.container_stats[container.name]
                 continue
+            
             try:
-                stats = container.stats(stream=False)
-                networks = container.attrs['NetworkSettings']['Networks']
+                stats      = container.stats(stream=False)
+                networks   = container.attrs['NetworkSettings']['Networks']
                 ip_address = networks.get('video-streaming_default', {}).get('IPAddress', 'N/A')
-
+                
+                latitude, longitude = None, None 
+                for env_var in container.attrs['Config']['Env']:
+                    if env_var.startswith("LATITUDE="):
+                        latitude = float(env_var.split("=", 1)[1])
+                    elif env_var.startswith("LONGITUDE="):
+                        longitude = float(env_var.split("=", 1)[1])
+                
                 prev_stats = self.container_stats.get(container.name, [{}])[-1]
 
                 container_stats = {
@@ -38,6 +49,8 @@ class ContainerMonitor:
                     'rate_rx_bytes': (stats['networks']['eth0']['rx_bytes'] - prev_stats.get('rx_bytes', 0)),
                     'rate_tx_bytes': (stats['networks']['eth0']['tx_bytes'] - prev_stats.get('tx_bytes', 0)),
                     'ip_address': ip_address,  # IP address of the container
+                    'latitude': latitude,
+                    'longitude': longitude
                 }
 
                 if container.name not in self.container_stats:
@@ -53,9 +66,14 @@ class ContainerMonitor:
 
             # self.print_stats()
 
-
-    def getNodes(self, metric='tx_bytes'):
+    def getNodes(self):
         return [(name, stat[-1]['ip_address']) for name, stat in self.container_stats.items()]
+
+    def get_container_data(self, container_name, data_key):
+        if container_name in self.container_stats:
+            latest_stats = self.container_stats[container_name][-1]
+            return latest_stats.get(data_key)
+        return None
 
     def print_stats(self):
         for name, stats_list in self.container_stats.items():

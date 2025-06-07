@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<!-- saved from url=(0082)https://reference.dashif.org/dash.js/latest/samples/advanced/content-steering.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <title>Content Steering</title>
+
+    <script src="./Content Steering_files/dash.all.debug.js.baixados"></script>
+
+    <!-- Bootstrap core CSS -->
+    <link href="./Content Steering_files/bootstrap.min.css" rel="stylesheet">
+    <link href="./Content Steering_files/main.css" rel="stylesheet">
+
+    <style>
+        video {
+            width: 640px;
+            height: 360px;
+        }
+
+        #start, #receive {
+            height: 500px;
+            margin-top: 20px;
+            font-size: 10px;
+        }
+
+        figure.cdn-selection {
+            margin: 0 0 0 30px;
+            display: inline-block;
+        }
+
+        img.cdn-selection {
+            width: 70px;
+        }
+
+        .border {
+            border: 2px solid #dee2e6 !important;
+        }
+
+        #cdn-selection-container, #location-selection-container {
+            margin: 30px 0 0 0;
+        }
+    </style>
+
+    <script class="code">
+        let player;
+        let mpd = "";
+        let currentSelectedServiceLocation = {};
+        let cdnSelectionImgDomElements = {};
+        let locationSelectionImgDomElements = {};
+        let coordservers = [[0,0],[1,1],[0,1]];
+        let intervalID;
+        let interval_spam;
+        function init() {
+            player = dashjs.MediaPlayer().create();
+            document.getElementById('load-button').addEventListener('click', function () {
+                _load();
+            })
+            document.getElementById('button_StopTrigger').addEventListener('click', function() {
+                stopTrigger(intervalID);
+            })
+            document.getElementById('button_Trigger').addEventListener('click', function () {
+                coords(document.getElementById('select-coords').value, document.getElementById('latitude').value, document.getElementById('longitude').value);
+            })
+            document.getElementById('switch_spam').addEventListener('change', function () {
+                if(this.checked){
+                    spam_cache(document.getElementById('select_server').value);
+                }
+                else{
+                    stopTrigger(interval_spam);
+                }
+            })
+            player.initialize(document.querySelector("video"), null, true);
+
+            player.on(dashjs.MediaPlayer.events.FRAGMENT_LOADING_STARTED, _onFragmentLoadingStarted, null);
+            player.on(dashjs.MediaPlayer.events.MANIFEST_LOADING_STARTED, _onManifestLoadingStarted, null);
+            player.on(dashjs.MediaPlayer.events.CONTENT_STEERING_REQUEST_COMPLETED, _onContentSteeringRequestCompleted, null);
+            player.on(dashjs.MediaPlayer.events.BASE_URLS_UPDATED, _onBaseUrlsUpdated, null);
+            player.on(dashjs.MediaPlayer.events.MANIFEST_LOADED, _onManifestLoaded, null);
+        }
+        function spam_cache(value){
+            let server = parseInt(value)+1;
+            let host = "https://video-streaming-cache-"+server.toString()+"/Eldorado/4sec/avc/7500000/seg-1.m4s";
+            function get_video(){
+                fetch(host);
+            }
+            if (interval_spam != null){
+                clearInterval(interval_spam);
+            }
+            interval_spam = setInterval(get_video, 300);
+            
+        }
+        function stopTrigger(interval){
+            if (interval != null) clearInterval(interval);
+        }
+        function _load() {
+            mpd = document.getElementById('manifest').value;
+            player.attachSource(mpd);
+        }
+
+        function coords(value, initlat, initlong) {
+            //setInterval()
+            /*var refreshIntervalId = setInterval(fname, 10000);
+            clearInterval(refreshIntervalId);*/
+            //set time to update coordinates
+            let time = 500;
+            let steplat,steplong;
+            steplat = (coordservers[parseInt(value)][0] - initlat)/1000;
+            steplong = (coordservers[parseInt(value)][1] - initlong)/1000;
+            var latitude = parseFloat(initlat);
+            var longitude = parseFloat(initlong);
+            
+
+            function updatecoords(){
+                fetch("https://steering-service:30500/coords", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        "lat" : latitude,
+                        "long" : longitude,
+                    }),
+                    headers: {
+                        "Content-type": "application/json; charset=UTF-8"
+                    }
+                    }).then(data => {console.log(data)});
+                latitude = latitude + steplat;
+                longitude = longitude + steplong;
+                document.getElementById("instlat").value = latitude;
+                document.getElementById("instlong").value = longitude;
+
+            }
+
+            if (intervalID != null){
+                clearInterval(intervalID)
+            }
+
+            intervalID = setInterval(updatecoords, 500);
+
+        }
+
+        function _onFragmentLoadingStarted(e) {
+            try {
+                if (e && e.mediaType && (e.mediaType === 'video' || e.mediaType === 'audio') && e.request) {
+                    if (e.request.serviceLocation) {
+                        const element = document.getElementById(`${e.mediaType}-service-location`);
+                        element.innerText = e.request.serviceLocation;
+                        if (!currentSelectedServiceLocation[e.mediaType] || currentSelectedServiceLocation[e.mediaType] !== e.request.serviceLocation) {
+                            currentSelectedServiceLocation[e.mediaType] = e.request.serviceLocation;
+                            _serviceLocationChanged(currentSelectedServiceLocation, cdnSelectionImgDomElements);
+                        }
+                    }
+                    if (e.request.url) {
+                        const element = document.getElementById(`${e.mediaType}-request-url`);
+                        element.innerText = e.request.url;
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function _serviceLocationChanged(selectedServiceLocation, domElements) {
+            const activeServiceLocations = Object.keys(selectedServiceLocation).reduce((acc, key) => {
+                acc[selectedServiceLocation[key]] = true;
+                return acc;
+            }, {})
+
+            Object.keys(domElements).forEach((key) => {
+                const elem = domElements[key];
+
+                if (activeServiceLocations[key]) {
+                    elem.setAttribute('src', 'img/server-active.svg')
+                } else {
+                    elem.setAttribute('src', 'img/server.svg');
+                }
+
+            })
+        }
+
+        function _onBaseUrlsUpdated(e) {
+            if (!e || !e.baseUrls || e.baseUrls.length === 0) {
+                return;
+            }
+            const divContainer = document.getElementById('cdn-selection-container');
+            /* Only create the once we dont have yet */
+            e.baseUrls.forEach((baseUrl) => {
+                if (baseUrl.serviceLocation) {
+                    const existingElement = document.getElementById(`cdn-selection-${baseUrl.serviceLocation}`);
+                    if (!existingElement) {
+                        const spanContainer = document.createElement('span');
+                        spanContainer.setAttribute('id', `cdn-selection-${baseUrl.serviceLocation}`);
+                        const figure = document.createElement('figure');
+                        figure.setAttribute('class', 'cdn-selection');
+                        const img = document.createElement('img');
+                        img.setAttribute('src', 'img/server.svg');
+                        img.setAttribute('class', 'figure-img img-fluid cdn-selection');
+                        const figCaption = document.createElement('figcaption');
+                        figCaption.setAttribute('class', 'figure-caption');
+                        const label = document.createTextNode(`${baseUrl.serviceLocation}`);
+                        figCaption.appendChild(label);
+                        figure.appendChild(img)
+                        figure.appendChild(figCaption);
+                        spanContainer.appendChild(figure);
+                        divContainer.appendChild(spanContainer);
+                        cdnSelectionImgDomElements[baseUrl.serviceLocation] = img;
+                    }
+                }
+            })
+        }
+
+        function _onManifestLoaded() {
+            const locations = player.getAvailableLocations();
+            if (!locations || locations.length === 0) {
+                return;
+            }
+            const divContainer = document.getElementById('location-selection-container');
+            /* Only create the once we dont have yet */
+            locations.forEach((location) => {
+                if (location.serviceLocation) {
+                    const existingElement = document.getElementById(`cdn-selection-${location.serviceLocation}`);
+                    if (!existingElement) {
+                        const spanContainer = document.createElement('span');
+                        spanContainer.setAttribute('id', `cdn-selection-${location.serviceLocation}`);
+                        const figure = document.createElement('figure');
+                        figure.setAttribute('class', 'cdn-selection');
+                        const img = document.createElement('img');
+                        img.setAttribute('src', 'img/server.svg');
+                        img.setAttribute('class', 'figure-img img-fluid cdn-selection');
+                        const figCaption = document.createElement('figcaption');
+                        figCaption.setAttribute('class', 'figure-caption');
+                        const label = document.createTextNode(`${location.serviceLocation}`);
+                        figCaption.appendChild(label);
+                        figure.appendChild(img)
+                        figure.appendChild(figCaption);
+                        spanContainer.appendChild(figure);
+                        divContainer.appendChild(spanContainer);
+                        locationSelectionImgDomElements[location.serviceLocation] = img;
+                    }
+                }
+            })
+        }
+
+        function _onManifestLoadingStarted(e) {
+            try {
+                if (e.request.serviceLocation) {
+
+                }
+                if (e.request.url) {
+                    const element = document.getElementById(`manifest-request-url`);
+                    element.innerText = e.request.url;
+                }
+                const slElement = document.getElementById(`manifest-service-location`);
+                if (e.request.serviceLocation) {
+                    slElement.innerText = e.request.serviceLocation;
+                    _serviceLocationChanged({ manifest: e.request.serviceLocation }, locationSelectionImgDomElements)
+                } else {
+                    slElement.innerText = '';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function _onContentSteeringRequestCompleted(e) {
+            try {
+                if (e) {
+                    document.getElementById(`steering-request-timestamp`).innerText = new Date().toISOString();
+                    if (e.url) {
+                        document.getElementById(`steering-request-url`).innerText = decodeURIComponent(e.url);
+                    }
+                    if (e.currentSteeringResponseData) {
+                        document.getElementById(`steering-version`).innerText = e.currentSteeringResponseData.version;
+                        document.getElementById(`steering-ttl`).innerText = e.currentSteeringResponseData.ttl;
+                        document.getElementById(`steering-reload-uri`).innerText = e.currentSteeringResponseData.reloadUri;
+                        document.getElementById(`steering-pathway-priority`).innerText = e.currentSteeringResponseData.pathwayPriority.toString();
+                        document.getElementById(`steering-pathway-cloning`).innerText = JSON.stringify(e.currentSteeringResponseData.pathwayClones, null, '\t');
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+    </script>
+<link rel="stylesheet" href="./Content Steering_files/tomorrow.min.css"><script src="./Content Steering_files/highlight.min.js.baixados"></script></head>
+<body>
+
+<main>
+    <div class="container py-4">
+        <header class="pb-3 mb-4 border-bottom">
+            <img class="" src="./Content Steering_files/dashjs-logo.png" width="200">
+        </header>
+        <div class="row">
+            <h1>Content Steering</h1>
+            <div class="col-md-5">
+                <div class="h-100 p-5 border rounded-3">
+                    <h4>Description</h4>
+                    <p>Content distributors often use multiple Content Delivery Networks (CDNs) to
+                        distribute their content to the end-users. They may upload a copy of their catalogue
+                        to each CDN, or more commonly have all CDNs pull the content from a common
+                        origin. Alternate URLs are generated, one for each CDN, that point at identical
+                        content. DASH players may access alternate URLs in the event of delivery
+                        problems. </p>
+                    <p><b>Content steering</b> describes a deterministic capability for a content
+                        distributor to switch the content source that a player uses either at start-up or
+                        midstream, by means of a remote steering service. The DASH implementation of
+                        Content Steering also supports the notion of a proxy steering server which can
+                        switch a mobile client between broadcast and unicast sources. </p>
+                </div>
+            </div>
+            <div class="col-md-7">
+                <div class="h-100 p-5 border rounded-3">
+                    <h4>Architecture</h4>
+                    <img src="./Content Steering_files/steering.png" class="img-fluid" alt="Steering architecture illustration">
+                </div>
+            </div>
+        </div>
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="input-group mb-3">
+                    <input type="text" id="manifest" class="form-control" placeholder="MPD URL" value="https://www.content-steering.com/bbb/playlist_steering_cloudfront_https.mpd">
+                    <button type="button" id="load-button" class="btn btn-success">Load MPD
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-6">
+                <video controls="true" muted="" preload="auto"></video>
+            </div>
+            <div class="col-md-6">
+                <div class="h-100 p-5 border rounded-3">
+                    <h5>CDN Selection</h5>
+                    <div id="cdn-selection-container"></div>
+                    <h5 style="margin-top: 20px">Location Selection</h5>
+                    <div id="location-selection-container">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-6">
+                <div class="h-100 p-5 border rounded-3">
+                    <h5> Fragment Requests</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                            <tr>
+                                <th scope="col">Type</th>
+                                <th scope="col">Service Location</th>
+                                <th scope="col">Request URL</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td>Audio</td>
+                                <td id="audio-service-location"></td>
+                                <td id="audio-request-url"></td>
+                            </tr>
+                            <tr>
+                                <td>Video</td>
+                                <td id="video-service-location"></td>
+                                <td id="video-request-url"></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="h-100 p-5 border rounded-3">
+                    <h5> Manifest Requests</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                            <tr>
+                                <th scope="col">Service Location</th>
+                                <th scope="col">Request URL</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td id="manifest-service-location"></td>
+                                <td id="manifest-request-url"></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="h-100 p-5 border rounded-3">
+                    <h5> Cache Spam</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <select name="select" id="select_server">
+                                            <option value="0">Cache 1</option>
+                                            <option value="1">Cache 2</option>
+                                            <option value="2">Cache 3</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <label class="switch">
+                                            <input type="checkbox" id="switch_spam">
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-12 mt-2">
+                <div class="h-100 p-5 border rounded-3">
+                    <h5> Steering Data</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                            <tr>
+                                <th scope="col">Attribute</th>
+                                <th scope="col">Value</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                            </tr><tr>
+                                <td>Timestamp</td>
+                                <td id="steering-request-timestamp"></td>
+                            </tr>
+                            <tr>
+                                <td>Request URL</td>
+                                <td>
+                                    <span id="steering-request-url"></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Response - Version</td>
+                                <td><span id="steering-version"></span></td>
+                            </tr>
+                            <tr>
+                                <td>Response - Reload URI</td>
+                                <td><span id="steering-reload-uri"></span></td>
+                            </tr>
+                            <tr>
+                                <td>Response - Pathway Priority</td>
+                                <td><span id="steering-pathway-priority"></span></td>
+                            </tr>
+                            <tr>
+                                <td>Response - Pathway Clones</td>
+                                <td>
+                                    <pre><span id="steering-pathway-cloning"></span></pre>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Response - TTL</td>
+                                <td><span id="steering-ttl"></span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-12 mt-2">
+                <div class="h-100 p-5 border rounded-3">
+                    <h5> Simulador de Movimento</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <tbody>
+                            <tr><td>
+                                <input type="number" step="0.00001" id="latitude" placeholder="latitude"><br>
+                                <input type="number" step="0.00001" id="longitude" placeholder="longitude"></td>
+                                <td>
+                                <select name="select" id="select-coords">
+                                    <option value="0">Direção Cache 1</option>
+                                    <option value="1">Direção Cache 2</option>
+                                    <option value="2">Direção Cache 3</option>
+                                </select></td>
+                                <td>
+                                    <button type="button" id="button_Trigger" class="btn btn-success">Start Simulator
+                                    </button>
+                                    <button type="button" id="button_StopTrigger" class="btn btn-success">Stop Simulator
+                                    </button>
+                                </td>
+                            </tr>
+                            </tbody>
+                            <tbody>
+                                <tr>
+                                    <td>Instant Latitude: </td><td><input type="number" id="instlat"></td>
+                                </tr>
+                                <tr>
+                                    <td>Instant Longitude: </td><td><input type="number" id="instlong"></td>
+                                </tr>
+                                    
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <div id="code-output"><div style="margin-top: 30px; display: block; width: 100%;"><p style=" font-weight: bold; font-size: 1.1em">Source code<button id="clipboard-copy" style="float: right; margin: 10px 10px 0 0">Copy to clipboard</button></p><pre style="border: solid 1px #ddd"><code class="html javascript hljs xml" id="code"><span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><br><span class="javascript">    <span class="hljs-keyword">let</span> player;</span><br><span class="javascript">    <span class="hljs-keyword">let</span> mpd = <span class="hljs-string">""</span>;</span><br><span class="javascript">    <span class="hljs-keyword">let</span> currentSelectedServiceLocation = {}</span><br><span class="javascript">    <span class="hljs-keyword">let</span> cdnSelectionImgDomElements = {};</span><br><span class="javascript">    <span class="hljs-keyword">let</span> locationSelectionImgDomElements = {};</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">init</span>(<span class="hljs-params"></span>) </span>{</span><br><span class="javascript">        player = dashjs.MediaPlayer().create();</span><br><span class="javascript">        <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">'load-button'</span>).addEventListener(<span class="hljs-string">'click'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params"></span>) </span>{</span><br><span class="javascript">            _load();</span><br><span class="javascript">        })</span><br><span class="javascript">        player.initialize(<span class="hljs-built_in">document</span>.querySelector(<span class="hljs-string">"video"</span>), <span class="hljs-literal">null</span>, <span class="hljs-literal">true</span>);</span><br><br><span class="javascript">        player.on(dashjs.MediaPlayer.events.FRAGMENT_LOADING_STARTED, _onFragmentLoadingStarted, <span class="hljs-literal">null</span>);</span><br><span class="javascript">        player.on(dashjs.MediaPlayer.events.MANIFEST_LOADING_STARTED, _onManifestLoadingStarted, <span class="hljs-literal">null</span>);</span><br><span class="javascript">        player.on(dashjs.MediaPlayer.events.CONTENT_STEERING_REQUEST_COMPLETED, _onContentSteeringRequestCompleted, <span class="hljs-literal">null</span>);</span><br><span class="javascript">        player.on(dashjs.MediaPlayer.events.BASE_URLS_UPDATED, _onBaseUrlsUpdated, <span class="hljs-literal">null</span>);</span><br><span class="javascript">        player.on(dashjs.MediaPlayer.events.MANIFEST_LOADED, _onManifestLoaded, <span class="hljs-literal">null</span>);</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_load</span>(<span class="hljs-params"></span>) </span>{</span><br><span class="javascript">        mpd = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">'manifest'</span>).value;</span><br><span class="javascript">        player.attachSource(mpd);</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_onFragmentLoadingStarted</span>(<span class="hljs-params">e</span>) </span>{</span><br><span class="javascript">        <span class="hljs-keyword">try</span> {</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (e &amp;&amp; e.mediaType &amp;&amp; <span class="hljs-function">(<span class="hljs-params">e.mediaType === <span class="hljs-string">'video'</span> || e.mediaType === <span class="hljs-string">'audio'</span></span>) &amp;&amp; <span class="hljs-params">e</span>.<span class="hljs-params">request</span>) {</span></span><br><span class="javascript"><span class="hljs-function">                <span class="hljs-params">if</span> (<span class="hljs-params">e.request.serviceLocation</span>) {</span></span><br><span class="javascript"><span class="hljs-function">                    <span class="hljs-params">const</span> <span class="hljs-params">element</span> = <span class="hljs-params">document</span>.<span class="hljs-params">getElementById</span>(<span class="hljs-params"><span class="hljs-string">`<span class="hljs-subst">${e.mediaType}</span>-service-location`</span></span>);</span></span><br><span class="javascript"><span class="hljs-function">                    <span class="hljs-params">element</span>.<span class="hljs-params">innerText</span> = <span class="hljs-params">e</span>.<span class="hljs-params">request</span>.<span class="hljs-params">serviceLocation</span>;</span></span><br><span class="javascript"><span class="hljs-function">                    <span class="hljs-params">if</span> (<span class="hljs-params">!currentSelectedServiceLocation[e.mediaType] || currentSelectedServiceLocation[e.mediaType] !== e.request.serviceLocation</span>) {</span></span><br><span class="javascript"><span class="hljs-function">                        <span class="hljs-params">currentSelectedServiceLocation</span>[<span class="hljs-params">e</span>.<span class="hljs-params">mediaType</span>] = <span class="hljs-params">e</span>.<span class="hljs-params">request</span>.<span class="hljs-params">serviceLocation</span>;</span></span><br><span class="javascript"><span class="hljs-function">                        <span class="hljs-params">_serviceLocationChanged</span>(<span class="hljs-params">currentSelectedServiceLocation, cdnSelectionImgDomElements</span>);</span></span><br><span class="javascript"><span class="hljs-function">                    }</span></span><br><span class="javascript"><span class="hljs-function">                }</span></span><br><span class="javascript"><span class="hljs-function">                <span class="hljs-params">if</span> (<span class="hljs-params">e.request.url</span>) {</span></span><br><span class="javascript"><span class="hljs-function">                    <span class="hljs-params">const</span> <span class="hljs-params">element</span> = <span class="hljs-params">document</span>.<span class="hljs-params">getElementById</span>(<span class="hljs-params"><span class="hljs-string">`<span class="hljs-subst">${e.mediaType}</span>-request-url`</span></span>);</span></span><br><span class="javascript"><span class="hljs-function">                    <span class="hljs-params">element</span>.<span class="hljs-params">innerText</span> = <span class="hljs-params">e</span>.<span class="hljs-params">request</span>.<span class="hljs-params">url</span>;</span></span><br><span class="javascript"><span class="hljs-function">                }</span></span><br><span class="javascript"><span class="hljs-function">            }</span></span><br><span class="javascript"><span class="hljs-function">        } <span class="hljs-params">catch</span> (<span class="hljs-params">e</span>) {</span></span><br><span class="javascript"><span class="hljs-function">            <span class="hljs-params">console</span>.<span class="hljs-params">error</span>(<span class="hljs-params">e</span>);</span></span><br><span class="javascript"><span class="hljs-function">        }</span></span><br><span class="javascript"><span class="hljs-function">    }</span></span><br><br><span class="javascript"><span class="hljs-function">    <span class="hljs-params">function</span> <span class="hljs-params">_serviceLocationChanged</span>(<span class="hljs-params">selectedServiceLocation, domElements</span>) {</span></span><br><span class="javascript"><span class="hljs-function">        <span class="hljs-params">const</span> <span class="hljs-params">activeServiceLocations</span> = <span class="hljs-params">Object</span>.<span class="hljs-params">keys</span>(<span class="hljs-params">selectedServiceLocation</span>).<span class="hljs-params">reduce</span>(<span class="hljs-params">(acc, key</span>) =&gt;</span> {</span><br><span class="javascript">            acc[selectedServiceLocation[key]] = <span class="hljs-literal">true</span>;</span><br><span class="javascript">            <span class="hljs-keyword">return</span> acc;</span><br><span class="javascript">        }, {})</span><br><br><span class="javascript">        <span class="hljs-built_in">Object</span>.keys(domElements).forEach(<span class="hljs-function">(<span class="hljs-params">key</span>) =&gt;</span> {</span><br><span class="javascript">            <span class="hljs-keyword">const</span> elem = domElements[key];</span><br><br><span class="javascript">            <span class="hljs-keyword">if</span> (activeServiceLocations[key]) {</span><br><span class="javascript">                elem.setAttribute(<span class="hljs-string">'src'</span>, <span class="hljs-string">'img/server-active.svg'</span>)</span><br><span class="javascript">            } <span class="hljs-keyword">else</span> {</span><br><span class="javascript">                elem.setAttribute(<span class="hljs-string">'src'</span>, <span class="hljs-string">'img/server.svg'</span>);</span><br><span class="javascript">            }</span><br><br><span class="javascript">        })</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_onBaseUrlsUpdated</span>(<span class="hljs-params">e</span>) </span>{</span><br><span class="javascript">        <span class="hljs-keyword">if</span> (!e || !e.baseUrls || e.baseUrls.length === <span class="hljs-number">0</span>) {</span><br><span class="javascript">            <span class="hljs-keyword">return</span>;</span><br><span class="javascript">        }</span><br><span class="javascript">        <span class="hljs-keyword">const</span> divContainer = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">'cdn-selection-container'</span>);</span><br><span class="javascript">        <span class="hljs-comment">/* Only create the once we dont have yet */</span></span><br><span class="javascript">        e.baseUrls.forEach(<span class="hljs-function">(<span class="hljs-params">baseUrl</span>) =&gt;</span> {</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (baseUrl.serviceLocation) {</span><br><span class="javascript">                <span class="hljs-keyword">const</span> existingElement = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`cdn-selection-<span class="hljs-subst">${baseUrl.serviceLocation}</span>`</span>);</span><br><span class="javascript">                <span class="hljs-keyword">if</span> (!existingElement) {</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> spanContainer = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'span'</span>);</span><br><span class="javascript">                    spanContainer.setAttribute(<span class="hljs-string">'id'</span>, <span class="hljs-string">`cdn-selection-<span class="hljs-subst">${baseUrl.serviceLocation}</span>`</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> figure = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'figure'</span>);</span><br><span class="javascript">                    figure.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'cdn-selection'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> img = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'img'</span>);</span><br><span class="javascript">                    img.setAttribute(<span class="hljs-string">'src'</span>, <span class="hljs-string">'img/server.svg'</span>);</span><br><span class="javascript">                    img.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'figure-img img-fluid cdn-selection'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> figCaption = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'figcaption'</span>);</span><br><span class="javascript">                    figCaption.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'figure-caption'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> label = <span class="hljs-built_in">document</span>.createTextNode(<span class="hljs-string">`<span class="hljs-subst">${baseUrl.serviceLocation}</span>`</span>);</span><br><span class="javascript">                    figCaption.appendChild(label);</span><br><span class="javascript">                    figure.appendChild(img)</span><br><span class="javascript">                    figure.appendChild(figCaption);</span><br><span class="javascript">                    spanContainer.appendChild(figure);</span><br><span class="javascript">                    divContainer.appendChild(spanContainer);</span><br><span class="javascript">                    cdnSelectionImgDomElements[baseUrl.serviceLocation] = img;</span><br><span class="javascript">                }</span><br><span class="javascript">            }</span><br><span class="javascript">        })</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_onManifestLoaded</span>(<span class="hljs-params"></span>) </span>{</span><br><span class="javascript">        <span class="hljs-keyword">const</span> locations = player.getAvailableLocations();</span><br><span class="javascript">        <span class="hljs-keyword">if</span> (!locations || locations.length === <span class="hljs-number">0</span>) {</span><br><span class="javascript">            <span class="hljs-keyword">return</span>;</span><br><span class="javascript">        }</span><br><span class="javascript">        <span class="hljs-keyword">const</span> divContainer = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">'location-selection-container'</span>);</span><br><span class="javascript">        <span class="hljs-comment">/* Only create the once we dont have yet */</span></span><br><span class="javascript">        locations.forEach(<span class="hljs-function">(<span class="hljs-params">location</span>) =&gt;</span> {</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (location.serviceLocation) {</span><br><span class="javascript">                <span class="hljs-keyword">const</span> existingElement = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`cdn-selection-<span class="hljs-subst">${location.serviceLocation}</span>`</span>);</span><br><span class="javascript">                <span class="hljs-keyword">if</span> (!existingElement) {</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> spanContainer = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'span'</span>);</span><br><span class="javascript">                    spanContainer.setAttribute(<span class="hljs-string">'id'</span>, <span class="hljs-string">`cdn-selection-<span class="hljs-subst">${location.serviceLocation}</span>`</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> figure = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'figure'</span>);</span><br><span class="javascript">                    figure.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'cdn-selection'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> img = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'img'</span>);</span><br><span class="javascript">                    img.setAttribute(<span class="hljs-string">'src'</span>, <span class="hljs-string">'img/server.svg'</span>);</span><br><span class="javascript">                    img.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'figure-img img-fluid cdn-selection'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> figCaption = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'figcaption'</span>);</span><br><span class="javascript">                    figCaption.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'figure-caption'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> label = <span class="hljs-built_in">document</span>.createTextNode(<span class="hljs-string">`<span class="hljs-subst">${location.serviceLocation}</span>`</span>);</span><br><span class="javascript">                    figCaption.appendChild(label);</span><br><span class="javascript">                    figure.appendChild(img)</span><br><span class="javascript">                    figure.appendChild(figCaption);</span><br><span class="javascript">                    spanContainer.appendChild(figure);</span><br><span class="javascript">                    divContainer.appendChild(spanContainer);</span><br><span class="javascript">                    locationSelectionImgDomElements[location.serviceLocation] = img;</span><br><span class="javascript">                }</span><br><span class="javascript">            }</span><br><span class="javascript">        })</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_onManifestLoadingStarted</span>(<span class="hljs-params">e</span>) </span>{</span><br><span class="javascript">        <span class="hljs-keyword">try</span> {</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (e.request.serviceLocation) {</span><br><br><span class="javascript">            }</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (e.request.url) {</span><br><span class="javascript">                <span class="hljs-keyword">const</span> element = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`manifest-request-url`</span>);</span><br><span class="javascript">                element.innerText = e.request.url;</span><br><span class="javascript">            }</span><br><span class="javascript">            <span class="hljs-keyword">const</span> slElement = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`manifest-service-location`</span>);</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (e.request.serviceLocation) {</span><br><span class="javascript">                slElement.innerText = e.request.serviceLocation;</span><br><span class="javascript">                _serviceLocationChanged({ <span class="hljs-attr">manifest</span>: e.request.serviceLocation }, locationSelectionImgDomElements)</span><br><span class="javascript">            } <span class="hljs-keyword">else</span> {</span><br><span class="javascript">                slElement.innerText = <span class="hljs-string">''</span>;</span><br><span class="javascript">            }</span><br><span class="javascript">        } <span class="hljs-keyword">catch</span> (e) {</span><br><span class="javascript">            <span class="hljs-built_in">console</span>.error(e);</span><br><span class="javascript">        }</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_onContentSteeringRequestCompleted</span>(<span class="hljs-params">e</span>) </span>{</span><br><span class="javascript">        <span class="hljs-keyword">try</span> {</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (e) {</span><br><span class="javascript">                <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-request-timestamp`</span>).innerText = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Date</span>().toISOString();</span><br><span class="javascript">                <span class="hljs-keyword">if</span> (e.url) {</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-request-url`</span>).innerText = <span class="hljs-built_in">decodeURIComponent</span>(e.url);</span><br><span class="javascript">                }</span><br><span class="javascript">                <span class="hljs-keyword">if</span> (e.currentSteeringResponseData) {</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-version`</span>).innerText = e.currentSteeringResponseData.version;</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-ttl`</span>).innerText = e.currentSteeringResponseData.ttl;</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-reload-uri`</span>).innerText = e.currentSteeringResponseData.reloadUri;</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-pathway-priority`</span>).innerText = e.currentSteeringResponseData.pathwayPriority.toString();</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-pathway-cloning`</span>).innerText = <span class="hljs-built_in">JSON</span>.stringify(e.currentSteeringResponseData.pathwayClones, <span class="hljs-literal">null</span>, <span class="hljs-string">'\t'</span>);</span><br><span class="javascript">                }</span><br><span class="javascript">            }</span><br><span class="javascript">        } <span class="hljs-keyword">catch</span> (e) {</span><br><span class="javascript">            <span class="hljs-built_in">console</span>.error(e);</span><br><span class="javascript">        }</span><br><span class="javascript">    }</span><br><br><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span><br></code></pre></div></div>
+            </div>
+        </div>
+        <footer class="pt-3 mt-4 text-muted border-top">
+            © DASH-IF
+        </footer>
+    </div>
+</main>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        init();
+    });
+</script>
+<script src="./Content Steering_files/highlighter.js.baixados"></script>
+
+
+</body></html>
