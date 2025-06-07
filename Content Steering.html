@@ -1,521 +1,673 @@
 <!DOCTYPE html>
-<!-- saved from url=(0082)https://reference.dashif.org/dash.js/latest/samples/advanced/content-steering.html -->
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    
-    <title>Content Steering</title>
-
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Content Steering - Simulation Interface</title>
     <script src="./Content Steering_files/dash.all.debug.js.baixados"></script>
-
-    <!-- Bootstrap core CSS -->
-    <link href="./Content Steering_files/bootstrap.min.css" rel="stylesheet">
-    <link href="./Content Steering_files/main.css" rel="stylesheet">
-
+    <link href="./Content Steering_files/bootstrap.min.css" rel="stylesheet" />
+    <link href="./Content Steering_files/main.css" rel="stylesheet" />
     <style>
-        video {
-            width: 640px;
-            height: 360px;
-        }
-
-        #start, #receive {
-            height: 500px;
-            margin-top: 20px;
-            font-size: 10px;
-        }
-
-        figure.cdn-selection {
-            margin: 0 0 0 30px;
-            display: inline-block;
-        }
-
-        img.cdn-selection {
-            width: 70px;
-        }
-
-        .border {
-            border: 2px solid #dee2e6 !important;
-        }
-
-        #cdn-selection-container, #location-selection-container {
-            margin: 30px 0 0 0;
-        }
+      video { width: 100%; max-width: 640px; height: auto; background-color: black; }
+      figure.cdn-selection { margin: 0 10px 0 0; display: inline-block; vertical-align: top;}
+      img.cdn-selection { width: 50px; }
+      .figure-caption { text-align: center; font-size: 0.75em; }
+      #cdn-selection-container { margin: 5px 0 15px 0; min-height: 70px;}
+      .table td, .table th { font-size: 0.85em; padding: 0.4rem; }
+      pre { white-space: pre-wrap; word-break: break-all; font-size: 0.8em; max-height: 100px; overflow-y: auto; }
+      .simulation-controls label { margin-right: 5px; }
+      .simulation-controls input, .simulation-controls select { margin-bottom: 10px; }
+      .simulation-controls .form-select, .simulation-controls .form-control-sm { margin-right: 5px;}
     </style>
+</head>
+<body>
+    <main>
+      <div class="container py-4">
+        <header class="pb-3 mb-4 border-bottom">
+          <img src="./Content Steering_files/dashjs-logo.png" width="180" alt="DASH-IF Logo"/>
+          <h4 style="display: inline-block; margin-left: 20px; vertical-align: middle;">Simulation Interface (CSV Data Focus)</h4>
+        </header>
 
-    <script class="code">
+        <div class="row mt-2 mb-3 p-3 border rounded-3 simulation-controls">
+            <h5>Simulation Setup</h5>
+            <div class="row mb-2">
+                <div class="col-md-4">
+                    <label for="simDuration">Total Duration (s):</label>
+                    <input type="number" id="simDuration" value="120" class="form-control form-control-sm d-inline-block" style="width: 80px;">
+                </div>
+                <div class="col-md-8">
+                    <label for="initialSimLat">Initial Lat:</label>
+                    <input type="number" step="any" id="initialSimLat" value="-20.0" class="form-control form-control-sm d-inline-block" style="width: 90px;">
+                    <label for="initialSimLon" class="ms-2">Initial Lon:</label>
+                    <input type="number" step="any" id="initialSimLon" value="-40.0" class="form-control form-control-sm d-inline-block" style="width: 90px;">
+                </div>
+            </div>
+            <div class="row mb-2 align-items-center">
+                <div class="col-md-6">
+                    <label for="simMovementTarget">Movement:</label>
+                    <select id="simMovementTarget" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                        <option value="none">Stay Still</option>
+                    </select>
+                    Start @ <input type="number" id="simMovementStartTime" value="10" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement: Start after X seconds">s
+                    Duration <input type="number" id="simMovementDuration" value="30" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement: Time in seconds to reach target">s
+                </div>
+                <div class="col-md-6">
+                    <label for="simSpamTarget_1">Spam Cache 1:</label>
+                    <select id="simSpamTarget_1" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                        <option value="none">No Spam</option>
+                    </select>
+                    @ <input type="number" id="simSpamStartTime_1" value="20" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 1: Start after X seconds">s
+                    for <input type="number" id="simSpamDuration_1" value="20" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 1: Duration in seconds">s
+                </div>
+            </div>
+            <div class="row mb-3 align-items-center">
+                 <div class="col-md-6">
+                 </div>
+                <div class="col-md-6">
+                    <label for="simSpamTarget_2">Spam Cache 2:</label>
+                    <select id="simSpamTarget_2" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                        <option value="none">No Spam</option>
+                    </select>
+                    @ <input type="number" id="simSpamStartTime_2" value="80" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 2: Start after X seconds">s
+                    for <input type="number" id="simSpamDuration_2" value="20" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 2: Duration in seconds">s
+                </div>
+            </div>
+            <div class="col-md-12 mt-1">
+                <button type="button" id="button_StartControlledSim" class="btn btn-success btn-sm me-2" disabled>Start Simulation</button>
+                <button type="button" id="button_StopSim" class="btn btn-danger btn-sm me-2" disabled>Stop Simulation</button>
+                <button type="button" id="button_ResetSimUI" class="btn btn-warning btn-sm">Reset UI & Sim State</button>
+            </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-7">
+            <div class="input-group mb-2">
+              <input type="text" id="manifest" class="form-control form-control-sm" placeholder="MPD URL" value="https://video-streaming-cache-1/Eldorado/4sec/avc/manifest.mpd"/>
+              <button type="button" id="load-button" class="btn btn-primary btn-sm">Load MPD</button>
+            </div>
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" value="" id="autoStartCheckbox">
+                <label class="form-check-label" for="autoStartCheckbox" style="font-size: 0.9em;">
+                    Auto-start simulation on MPD load
+                </label>
+            </div>
+            <video controls="true" muted="true" preload="metadata"></video>
+             <div class="mt-2">
+                Sim Time: <span id="simCurrentTimeDisplay">0</span>s <br>
+                Client Pos: Lat <input type="text" id="current-latitude" class="form-control-sm" style="width:90px;" readonly/>,
+                Lon <input type="text" id="current-longitude" class="form-control-sm" style="width:90px;" readonly /> <br>
+                Movement: <span id="simMovementStatus">Inactive</span> <br>
+                Spam 1: <span id="simSpamStatus_1">Inactive</span> | Spam 2: <span id="simSpamStatus_2">Inactive</span>
+            </div>
+          </div>
+          <div class="col-md-5">
+            <div class="p-2 border rounded-3" style="max-height: 450px; overflow-y: auto;">
+              <h6>CDN Selection (Active for Segments)</h6>
+              <div id="cdn-selection-container"></div>
+              <h6 style="margin-top: 10px;">Steering Decision (Priority)</h6>
+              <div id="steering-decision-display" style="font-size:0.8em; padding:5px; background-color:#f8f9fa; border-radius:3px;">N/A</div>
+               <h6 style="margin-top: 10px;">Steering Service Raw Data</h6>
+              <div class="table-responsive">
+                <table class="table table-sm">
+                   <tbody>
+                    <tr><td>Timestamp</td><td id="steering-request-timestamp">N/A</td></tr>
+                    <tr><td>Req URL</td><td><span id="steering-request-url" style="word-break: break-all;">N/A</span></td></tr>
+                    <tr><td>Clones</td><td><pre><span id="steering-pathway-cloning">N/A</span></pre></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <footer class="pt-3 mt-4 text-muted border-top">Simulation Interface (CSV Data Focus)</footer>
+      </div>
+    </main>
+
+    <script>
         let player;
-        let mpd = "";
-        let currentSelectedServiceLocation = {};
-        let cdnSelectionImgDomElements = {};
-        let locationSelectionImgDomElements = {};
-        let coordservers = [[0,0],[1,1],[0,1]];
-        let intervalID;
-        let interval_spam;
-        function init() {
+        let currentSegmentServiceLocation = { audio: null, video: null };
+        let cdnIconDomElements = {};
+        const CACHE_COORDS = {
+            "video-streaming-cache-1": { lat: -23.0, lon: -47.0, label: "Cache 1 (BR)" },
+            "video-streaming-cache-2": { lat: -33.0, lon: -71.0, label: "Cache 2 (CL)" },
+            "video-streaming-cache-3": { lat:  5.0,  lon: -74.0, label: "Cache 3 (CO)" }
+        };
+        const LATENCY_MS_PER_KM = 0.0;
+
+        let simTimer = null;
+        let simElapsedTime = 0;
+
+        let simMovementActive = false;
+        let simIntervalID_movement = null;
+        let movementStarted = false;
+
+        let simSpamActive_1 = false, simSpamActive_2 = false;
+        let simIntervalID_spam_1 = null, simIntervalID_spam_2 = null;
+
+        let simCurrentLat, simCurrentLon;
+        let isSimulationRunning = false;
+        let manifestSuccessfullyLoaded = false;
+
+        let onManifestLoadedCallback = null;
+        let onManifestErrorCallback = null;
+        let onStreamInitForPlay = null;
+        let onStreamInitForAutomaticPlay = null;
+
+        let fragmentLoadStarts = {};
+
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function deg2rad(deg) {
+            return deg * (Math.PI / 180);
+        }
+
+        function stopInterval(intervalId) {
+            if (intervalId != null) clearInterval(intervalId);
+        }
+
+        function setupPlayer() {
+            const videoElement = document.querySelector("video");
+            if (player) {
+                if (onManifestLoadedCallback) player.off(dashjs.MediaPlayer.events.MANIFEST_LOADED, onManifestLoadedCallback);
+                if (onManifestErrorCallback) player.off(dashjs.MediaPlayer.events.ERROR, onManifestErrorCallback);
+                if (onStreamInitForPlay) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay);
+                if (onStreamInitForAutomaticPlay) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForAutomaticPlay);
+                player.reset();
+            }
             player = dashjs.MediaPlayer().create();
-            document.getElementById('load-button').addEventListener('click', function () {
-                _load();
-            })
-            document.getElementById('button_StopTrigger').addEventListener('click', function() {
-                stopTrigger(intervalID);
-            })
-            document.getElementById('button_Trigger').addEventListener('click', function () {
-                coords(document.getElementById('select-coords').value, document.getElementById('latitude').value, document.getElementById('longitude').value);
-            })
-            document.getElementById('switch_spam').addEventListener('change', function () {
-                if(this.checked){
-                    spam_cache(document.getElementById('select_server').value);
+            player.initialize(videoElement, null, false);
+            player.on(dashjs.MediaPlayer.events.FRAGMENT_LOADING_STARTED, _onFragmentLoadingStarted);
+            player.on(dashjs.MediaPlayer.events.FRAGMENT_LOADING_COMPLETED, _onFragmentLoadingCompleted);
+            player.on(dashjs.MediaPlayer.events.CONTENT_STEERING_REQUEST_COMPLETED, _onContentSteeringRequestCompleted);
+            player.on(dashjs.MediaPlayer.events.ERROR, (e) => {
+                console.error("Player Error (Global Listener):", e);
+                if (e.error && e.error.code &&
+                    (e.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE ||
+                     e.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_LOADING_FAILURE_ERROR_CODE ||
+                     e.error.code === dashjs.MediaPlayer.errors.DOWNLOAD_ERROR_ID_MANIFEST)
+                ) {
+                     console.error("[CLIENT] Global error listener caught manifest issue, disabling start.");
+                     manifestSuccessfullyLoaded = false;
+                     document.getElementById("button_StartControlledSim").disabled = true;
                 }
-                else{
-                    stopTrigger(interval_spam);
-                }
-            })
-            player.initialize(document.querySelector("video"), null, true);
+            });
+        }
 
-            player.on(dashjs.MediaPlayer.events.FRAGMENT_LOADING_STARTED, _onFragmentLoadingStarted, null);
-            player.on(dashjs.MediaPlayer.events.MANIFEST_LOADING_STARTED, _onManifestLoadingStarted, null);
-            player.on(dashjs.MediaPlayer.events.CONTENT_STEERING_REQUEST_COMPLETED, _onContentSteeringRequestCompleted, null);
-            player.on(dashjs.MediaPlayer.events.BASE_URLS_UPDATED, _onBaseUrlsUpdated, null);
-            player.on(dashjs.MediaPlayer.events.MANIFEST_LOADED, _onManifestLoaded, null);
-        }
-        function spam_cache(value){
-            let server = parseInt(value)+1;
-            let host = "https://video-streaming-cache-"+server.toString()+"/Eldorado/4sec/avc/7500000/seg-1.m4s";
-            function get_video(){
-                fetch(host);
+        function init() {
+            setupPlayer();
+            document.getElementById("load-button").addEventListener("click", _load);
+            document.getElementById("button_StartControlledSim").addEventListener("click", startControlledSimulation);
+            document.getElementById("button_StopSim").addEventListener("click", stopCurrentSimulation);
+            document.getElementById("button_ResetSimUI").addEventListener("click", resetSimulationUIAndState);
+
+            populateSelect("simMovementTarget", "Stay Still");
+            populateSelect("simSpamTarget_1", "No Spam");
+            populateSelect("simSpamTarget_2", "No Spam");
+
+            const cdnContainer = document.getElementById("cdn-selection-container");
+            cdnContainer.innerHTML = ''; cdnIconDomElements = {};
+            for (const cacheName in CACHE_COORDS) {
+                _createIcon(cdnContainer, cacheName, cdnIconDomElements, "cdn");
             }
-            if (interval_spam != null){
-                clearInterval(interval_spam);
+            _resetUIOnly();
+            document.getElementById("button_StartControlledSim").disabled = true;
+            document.getElementById("button_StopSim").disabled = true;
+        }
+
+        function populateSelect(selectId, noneOptionText) {
+            const selectElement = document.getElementById(selectId);
+            selectElement.innerHTML = '';
+            if (noneOptionText) {
+                const noneOpt = document.createElement("option"); noneOpt.value = "none";
+                noneOpt.textContent = noneOptionText; selectElement.appendChild(noneOpt);
             }
-            interval_spam = setInterval(get_video, 300);
-            
+            for (const cacheName in CACHE_COORDS) {
+                const option = document.createElement("option"); option.value = cacheName;
+                option.textContent = CACHE_COORDS[cacheName].label; selectElement.appendChild(option);
+            }
         }
-        function stopTrigger(interval){
-            if (interval != null) clearInterval(interval);
+
+        function stopCurrentSimulation(pausePlayerAndSeek = true) {
+            isSimulationRunning = false;
+            if (simTimer) { clearInterval(simTimer); simTimer = null; }
+
+            stopInterval(simIntervalID_movement); simIntervalID_movement = null;
+            stopInterval(simIntervalID_spam_1); simIntervalID_spam_1 = null;
+            stopInterval(simIntervalID_spam_2); simIntervalID_spam_2 = null;
+
+            simMovementActive = false;
+            movementStarted = false;
+            simSpamActive_1 = false; simSpamActive_2 = false;
+
+            if (pausePlayerAndSeek && player && manifestSuccessfullyLoaded) {
+                if (player.isReady() && !player.isPaused()) {
+                    player.pause();
+                }
+                if (player.isReady()){
+                    player.seek(0);
+                }
+            }
+            document.getElementById("button_StartControlledSim").disabled = !manifestSuccessfullyLoaded;
+            document.getElementById("button_StopSim").disabled = true;
+            document.getElementById("simMovementStatus").textContent = "Inactive";
+            document.getElementById("simSpamStatus_1").textContent = "Inactive";
+            document.getElementById("simSpamStatus_2").textContent = "Inactive";
         }
+
+        function _resetUIOnly() {
+            simElapsedTime = 0;
+            document.getElementById("simCurrentTimeDisplay").textContent = "0";
+            const initialLatVal = parseFloat(document.getElementById("initialSimLat").value);
+            const initialLonVal = parseFloat(document.getElementById("initialSimLon").value);
+            simCurrentLat = isNaN(initialLatVal) ? -20.0 : initialLatVal;
+            simCurrentLon = isNaN(initialLonVal) ? -40.0 : initialLonVal;
+            document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
+            document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
+            document.getElementById("steering-decision-display").textContent = "N/A";
+            document.getElementById("steering-request-timestamp").textContent = "N/A";
+            document.getElementById("steering-request-url").textContent = "N/A";
+            document.getElementById("steering-pathway-cloning").textContent = "N/A";
+            currentSegmentServiceLocation = { audio: null, video: null };
+            _updateActiveServerIcons();
+            fragmentLoadStarts = {};
+            document.getElementById("simMovementStatus").textContent = "Inactive";
+            document.getElementById("simSpamStatus_1").textContent = "Inactive";
+            document.getElementById("simSpamStatus_2").textContent = "Inactive";
+            movementStarted = false;
+         }
+
+        function resetSimulationUIAndState() {
+            stopCurrentSimulation(true);
+            _resetUIOnly();
+            document.getElementById("button_StartControlledSim").disabled = true;
+        }
+
+        function startControlledSimulation() {
+            if (!manifestSuccessfullyLoaded) {
+                console.warn("[SIM_START] Attempted to start simulation, but manifest was not successfully loaded.");
+                return;
+            }
+            if (isSimulationRunning) {
+                console.warn("[SIM_START] Simulation is already running. Stop or Reset first.");
+                return;
+            }
+
+            console.log("[SIM_START] Starting controlled simulation...");
+            simElapsedTime = 0;
+            simMovementActive = false; movementStarted = false;
+            simSpamActive_1 = false; simSpamActive_2 = false;
+
+            stopInterval(simIntervalID_movement); simIntervalID_movement = null;
+            stopInterval(simIntervalID_spam_1);    simIntervalID_spam_1 = null;
+            stopInterval(simIntervalID_spam_2);    simIntervalID_spam_2 = null;
+
+
+            if (simTimer) { clearInterval(simTimer); simTimer = null; }
+            document.getElementById("simCurrentTimeDisplay").textContent = "0";
+            isSimulationRunning = true;
+            fragmentLoadStarts = {};
+
+            function attemptPlayAfterStreamReady() {
+                 if (player.getActiveStream() && player.isReady() && manifestSuccessfullyLoaded) {
+                    console.log("[SIM_START_PLAY] Stream ready, seeking to 0 and playing.");
+                    player.seek(0);
+                    player.play();
+                } else {
+                    console.warn("[SIM_START_PLAY] Conditions not met to play after stream init (Stream Active:", player.getActiveStream(), "Player Ready:", player.isReady(), "Manifest Loaded:", manifestSuccessfullyLoaded, ")");
+                }
+            }
+
+            if (player.getActiveStream() && player.isReady()) {
+                attemptPlayAfterStreamReady();
+            } else if (player.isReady()) {
+                if (onStreamInitForPlay && player) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay);
+                onStreamInitForPlay = function() {
+                    if (!isSimulationRunning) return;
+                    attemptPlayAfterStreamReady();
+                    if (player) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay);
+                };
+                player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay, null, { once: true });
+                console.log("[SIM_START] Player ready, waiting for STREAM_INITIALIZED to play...");
+            } else {
+                console.error("[SIM_START] Player is not ready. Cannot start playback reliably.");
+                isSimulationRunning = false;
+                return;
+            }
+
+            document.getElementById("button_StartControlledSim").disabled = true;
+            document.getElementById("button_StopSim").disabled = false;
+
+            const duration = parseInt(document.getElementById("simDuration").value) || 120;
+
+            const movementTarget = document.getElementById("simMovementTarget").value;
+            const movementStartTime = parseInt(document.getElementById("simMovementStartTime").value);
+            const desiredMovementDuration = parseInt(document.getElementById("simMovementDuration").value) || 30;
+
+            const spamTarget_1 = document.getElementById("simSpamTarget_1").value;
+            const spamStartTime_1 = parseInt(document.getElementById("simSpamStartTime_1").value);
+            const spamDuration_1 = parseInt(document.getElementById("simSpamDuration_1").value);
+            const spamTarget_2 = document.getElementById("simSpamTarget_2").value;
+            const spamStartTime_2 = parseInt(document.getElementById("simSpamStartTime_2").value);
+            const spamDuration_2 = parseInt(document.getElementById("simSpamDuration_2").value);
+
+            simCurrentLat = parseFloat(document.getElementById("initialSimLat").value);
+            simCurrentLon = parseFloat(document.getElementById("initialSimLon").value);
+            if(isNaN(simCurrentLat)) simCurrentLat = -20.0;
+            if(isNaN(simCurrentLon)) simCurrentLon = -40.0;
+            document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
+            document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
+            document.getElementById("simMovementStatus").textContent = "Inactive";
+            document.getElementById("simSpamStatus_1").textContent = "Inactive";
+            document.getElementById("simSpamStatus_2").textContent = "Inactive";
+
+            simTimer = setInterval(() => {
+                if (!isSimulationRunning) { clearInterval(simTimer); simTimer = null; return; }
+                simElapsedTime++;
+                document.getElementById("simCurrentTimeDisplay").textContent = simElapsedTime;
+
+                if (movementTarget !== "none" && simElapsedTime >= movementStartTime && !movementStarted) {
+                    movementStarted = true;
+                    simMovementActive = true;
+                    let timeRemainingInSim = duration - simElapsedTime;
+                    let effectiveMoveDuration = Math.max(1, Math.min(desiredMovementDuration, timeRemainingInSim));
+                    console.log(`Movement: Target=${movementTarget}, StartTime=${movementStartTime}, EffectiveDuration=${effectiveMoveDuration}s`);
+                    startSimulatedMovement(movementTarget, simCurrentLat, simCurrentLon, effectiveMoveDuration);
+                    document.getElementById("simMovementStatus").textContent = `Moving (to ${CACHE_COORDS[movementTarget]?.label || movementTarget})`;
+                }
+
+                if (spamTarget_1 !== "none" && simElapsedTime >= spamStartTime_1 && !simSpamActive_1) {
+                    simSpamActive_1 = true;
+                    startSimulatedCacheSpam(spamTarget_1, 1);
+                    document.getElementById("simSpamStatus_1").textContent = `Spamming (${CACHE_COORDS[spamTarget_1]?.label || spamTarget_1})`;
+                }
+                if (simSpamActive_1 && simElapsedTime >= (spamStartTime_1 + spamDuration_1)) {
+                    stopInterval(simIntervalID_spam_1); simIntervalID_spam_1 = null;
+                    simSpamActive_1 = false;
+                    document.getElementById("simSpamStatus_1").textContent = "Inactive";
+                }
+                if (spamTarget_2 !== "none" && simElapsedTime >= spamStartTime_2 && !simSpamActive_2) {
+                    simSpamActive_2 = true;
+                    startSimulatedCacheSpam(spamTarget_2, 2);
+                    document.getElementById("simSpamStatus_2").textContent = `Spamming (${CACHE_COORDS[spamTarget_2]?.label || spamTarget_2})`;
+                }
+                if (simSpamActive_2 && simElapsedTime >= (spamStartTime_2 + spamDuration_2)) {
+                    stopInterval(simIntervalID_spam_2); simIntervalID_spam_2 = null;
+                    simSpamActive_2 = false;
+                    document.getElementById("simSpamStatus_2").textContent = "Inactive";
+                }
+
+                reportLocationToSteering(simCurrentLat, simCurrentLon);
+                if (simElapsedTime >= duration) {
+                    stopCurrentSimulation(true);
+                }
+            }, 1000);
+        }
+
+        function startSimulatedMovement(targetCacheName, initialClientLat, initialClientLon, moveDurationSec) {
+            if (!CACHE_COORDS[targetCacheName]) {
+                console.warn(`[MOVEMENT] Target cache ${targetCacheName} not found.`);
+                simMovementActive = false; document.getElementById("simMovementStatus").textContent = "Error";
+                return;
+            }
+            const targetCoord = CACHE_COORDS[targetCacheName];
+            const totalSteps = moveDurationSec > 0 ? Math.max(1, Math.floor(moveDurationSec)) : 1;
+
+            const stepLat = (targetCoord.lat - initialClientLat) / totalSteps;
+            const stepLon = (targetCoord.lon - initialClientLon) / totalSteps;
+            let stepsTaken = 0;
+
+            if (simIntervalID_movement) clearInterval(simIntervalID_movement);
+            simIntervalID_movement = null;
+
+            const intervalFunc = () => {
+                if (!isSimulationRunning || !simMovementActive || !simIntervalID_movement) {
+                    stopInterval(simIntervalID_movement); simIntervalID_movement = null;
+                    return;
+                }
+
+                if (stepsTaken < totalSteps) {
+                    simCurrentLat += stepLat;
+                    simCurrentLon += stepLon;
+                    stepsTaken++;
+
+                    document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
+                    document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
+                } else {
+                    simCurrentLat = targetCoord.lat;
+                    simCurrentLon = targetCoord.lon;
+                    document.getElementById("current-latitude").value = simCurrentLat.toFixed(5);
+                    document.getElementById("current-longitude").value = simCurrentLon.toFixed(5);
+
+                    stopInterval(simIntervalID_movement); simIntervalID_movement = null;
+                    simMovementActive = false;
+                    if(isSimulationRunning) document.getElementById("simMovementStatus").textContent = "Reached Target";
+                }
+            };
+            simIntervalID_movement = setInterval(intervalFunc, 1000);
+        }
+
+        function startSimulatedCacheSpam(targetCacheName, phaseId) {
+            if (!CACHE_COORDS[targetCacheName]) {
+                console.warn(`[SPAM ${phaseId}] Target cache ${targetCacheName} not found.`);
+                if (phaseId === 1) { simSpamActive_1 = false; document.getElementById("simSpamStatus_1").textContent = "Error"; }
+                else { simSpamActive_2 = false; document.getElementById("simSpamStatus_2").textContent = "Error"; }
+                return;
+            }
+            let hostUrl = `https://${targetCacheName}/Eldorado/4sec/avc/7500000/seg-1.m4s?spam_ts=${Date.now()}&phase=${phaseId}`;
+
+            let currentPhaseActiveFlag = (phaseId === 1) ? () => simSpamActive_1 : () => simSpamActive_2;
+            let setSpamIntervalId = (val) => { if (phaseId === 1) simIntervalID_spam_1 = val; else simIntervalID_spam_2 = val; };
+            let currentSpamIntervalId = (phaseId === 1) ? simIntervalID_spam_1 : simIntervalID_spam_2;
+            let myIntervalClearer;
+            if (phaseId === 1) myIntervalClearer = () => { stopInterval(simIntervalID_spam_1); simIntervalID_spam_1 = null; };
+            else myIntervalClearer = () => { stopInterval(simIntervalID_spam_2); simIntervalID_spam_2 = null; };
+
+            function sendSpamRequest() {
+                if(isSimulationRunning && currentPhaseActiveFlag()) {
+                     fetch(hostUrl).catch(err => {});
+                } else {
+                    myIntervalClearer();
+                }
+            }
+            if (currentSpamIntervalId) clearInterval(currentSpamIntervalId);
+            setSpamIntervalId(setInterval(sendSpamRequest, 100));
+         }
+
+        function reportLocationToSteering(lat, lon) {
+            if (!isSimulationRunning || lat === undefined || lon === undefined) return;
+            const payload = { time: simElapsedTime, lat: lat, long: lon };
+            fetch("https://steering-service:30500/coords", {
+                method: "POST", body: JSON.stringify(payload),
+                headers: { "Content-type": "application/json; charset=UTF-8" }
+            }).catch(error => console.warn("[CLIENT] Fetch (location) to /coords failed:", error));
+        }
+
+        function reportLatencyToSteering(lat, lon, latency, serverUsed) {
+            if (!isSimulationRunning || lat === undefined || lon === undefined) return;
+            if (latency === undefined || serverUsed === undefined) {
+                 return;
+            }
+            const payload = { time: simElapsedTime, lat: lat, long: lon, rt: latency, server_used: serverUsed };
+            fetch("https://steering-service:30500/coords", {
+                method: "POST", body: JSON.stringify(payload),
+                headers: { "Content-type": "application/json; charset=UTF-8" }
+            })
+            .then(response => response.text().then(text => ({ok: response.ok, status: response.status, text})))
+            .then(data => {
+                if (!data.ok) console.warn(`[CLIENT] Latency report /coords error ${data.status}: ${data.text}`);
+            })
+            .catch(error => console.error("[CLIENT] Fetch (latency) to /coords failed:", error));
+        }
+
         function _load() {
-            mpd = document.getElementById('manifest').value;
-            player.attachSource(mpd);
-        }
+            let newMpdUrl = document.getElementById("manifest").value;
+            if (!newMpdUrl) { alert("Please enter an MPD URL."); return; }
 
-        function coords(value, initlat, initlong) {
-            //setInterval()
-            /*var refreshIntervalId = setInterval(fname, 10000);
-            clearInterval(refreshIntervalId);*/
-            //set time to update coordinates
-            let time = 500;
-            let steplat,steplong;
-            steplat = (coordservers[parseInt(value)][0] - initlat)/1000;
-            steplong = (coordservers[parseInt(value)][1] - initlong)/1000;
-            var latitude = parseFloat(initlat);
-            var longitude = parseFloat(initlong);
-            
+            manifestSuccessfullyLoaded = false;
+            document.getElementById("button_StartControlledSim").disabled = true;
+            if (isSimulationRunning) stopCurrentSimulation(true);
 
-            function updatecoords(){
-                fetch("https://steering-service:30500/coords", {
-                    method: "POST",
-                    body: JSON.stringify({
-                        "lat" : latitude,
-                        "long" : longitude,
-                    }),
-                    headers: {
-                        "Content-type": "application/json; charset=UTF-8"
+            setupPlayer();
+            _resetUIOnly();
+
+            try {
+                player.attachSource(newMpdUrl);
+
+                if (onManifestLoadedCallback && player) player.off(dashjs.MediaPlayer.events.MANIFEST_LOADED, onManifestLoadedCallback);
+                if (onManifestErrorCallback && player) player.off(dashjs.MediaPlayer.events.ERROR, onManifestErrorCallback);
+                if (onStreamInitForAutomaticPlay && player) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForAutomaticPlay);
+
+                onManifestLoadedCallback = function(e) {
+                    if(e.error) {
+                        console.error("[CLIENT_LOAD] Error during MANIFEST_LOADED event:", e.error.message || e.error);
+                        manifestSuccessfullyLoaded = false;
+                        document.getElementById("button_StartControlledSim").disabled = true;
+                    } else {
+                        manifestSuccessfullyLoaded = true;
+                        console.log("[CLIENT_LOAD] Manifest loaded successfully.");
+                        const autoStartEnabled = document.getElementById("autoStartCheckbox").checked;
+
+                        if (autoStartEnabled) {
+                            console.log("[CLIENT_LOAD] Auto-start enabled. Attempting to start simulation.");
+                            onStreamInitForAutomaticPlay = function() {
+                                if (player.getActiveStream()) {
+                                    if (manifestSuccessfullyLoaded && !isSimulationRunning) {
+                                        startControlledSimulation();
+                                    }
+                                } else {
+                                     console.warn("[CLIENT_LOAD_AUTO] STREAM_INITIALIZED event fired, but no active stream. Not auto-starting.");
+                                }
+                                if (player) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForAutomaticPlay);
+                            };
+                            if (player.getActiveStream() && player.isReady()) {
+                                onStreamInitForAutomaticPlay();
+                            } else if (player.isReady()){
+                                player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForAutomaticPlay, null, { once: true });
+                            } else {
+                                console.warn("[CLIENT_LOAD_AUTO] Player not ready after manifest load. Auto-start may fail or be delayed.");
+                                document.getElementById("button_StartControlledSim").disabled = false;
+                            }
+                        } else {
+                            document.getElementById("button_StartControlledSim").disabled = false;
+                        }
                     }
-                    }).then(data => {console.log(data)});
-                latitude = latitude + steplat;
-                longitude = longitude + steplong;
-                document.getElementById("instlat").value = latitude;
-                document.getElementById("instlong").value = longitude;
+                };
+                player.on(dashjs.MediaPlayer.events.MANIFEST_LOADED, onManifestLoadedCallback, null, {once: true});
 
+                onManifestErrorCallback = function(e) {
+                    if (e.error && (e.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE ||
+                                    e.error.code === dashjs.MediaPlayer.events.MANIFEST_LOADER_LOADING_FAILURE_ERROR_CODE ||
+                                    e.error.code === dashjs.MediaPlayer.events.DOWNLOAD_ERROR_ID_MANIFEST)) {
+                        console.error("[CLIENT_LOAD] FAILED to load/parse MPD (ERROR event):", e.error.message || e.error);
+                        manifestSuccessfullyLoaded = false;
+                        document.getElementById("button_StartControlledSim").disabled = true;
+                    }
+                };
+                player.on(dashjs.MediaPlayer.events.ERROR, onManifestErrorCallback, null, {once: true});
+
+            } catch (error) {
+                 console.error("[CLIENT_LOAD] Critical error during player.attachSource():", error);
+                 manifestSuccessfullyLoaded = false;
+                 document.getElementById("button_StartControlledSim").disabled = true;
             }
-
-            if (intervalID != null){
-                clearInterval(intervalID)
-            }
-
-            intervalID = setInterval(updatecoords, 500);
-
         }
 
         function _onFragmentLoadingStarted(e) {
             try {
-                if (e && e.mediaType && (e.mediaType === 'video' || e.mediaType === 'audio') && e.request) {
+                if (e && e.mediaType && (e.mediaType === "video" || e.mediaType === "audio") && e.request) {
+                    const key = e.mediaType + "_" + e.request.index;
                     if (e.request.serviceLocation) {
-                        const element = document.getElementById(`${e.mediaType}-service-location`);
-                        element.innerText = e.request.serviceLocation;
-                        if (!currentSelectedServiceLocation[e.mediaType] || currentSelectedServiceLocation[e.mediaType] !== e.request.serviceLocation) {
-                            currentSelectedServiceLocation[e.mediaType] = e.request.serviceLocation;
-                            _serviceLocationChanged(currentSelectedServiceLocation, cdnSelectionImgDomElements);
+                        fragmentLoadStarts[key] = {
+                            startTime: performance.now(),
+                            serviceLocation: e.request.serviceLocation,
+                            url: e.request.url
+                        };
+                        currentSegmentServiceLocation[e.mediaType] = e.request.serviceLocation;
+                        _updateActiveServerIcons();
+                    }
+                }
+            } catch (err) { console.error("[CLIENT] Error in _onFragmentLoadingStarted:", err); }
+        }
+
+        function _onFragmentLoadingCompleted(e) {
+            try {
+                const key = e.mediaType + "_" + e.request.index;
+                if (e && e.request && fragmentLoadStarts[key]) {
+                    const loadInfo = fragmentLoadStarts[key];
+                    const endTime = performance.now();
+                    let measuredLatencyMs = Math.round(endTime - loadInfo.startTime);
+                    const serverUsed = loadInfo.serviceLocation;
+
+                    delete fragmentLoadStarts[key];
+
+                    let finalLatencyToReport = measuredLatencyMs;
+
+                    if (isSimulationRunning && CACHE_COORDS[serverUsed] &&
+                        simCurrentLat !== undefined && simCurrentLon !== undefined) {
+
+                        const serverCoords = CACHE_COORDS[serverUsed];
+                        const distanceKm = getDistanceFromLatLonInKm(
+                            simCurrentLat, simCurrentLon,
+                            serverCoords.lat, serverCoords.lon
+                        );
+                        const distanceLatencyPenalty = Math.round(distanceKm * LATENCY_MS_PER_KM);
+                        finalLatencyToReport = measuredLatencyMs + distanceLatencyPenalty;
+                    }
+
+                    if (isSimulationRunning) {
+                        if (simCurrentLat !== undefined && simCurrentLon !== undefined) {
+                            reportLatencyToSteering(simCurrentLat, simCurrentLon, finalLatencyToReport, serverUsed);
                         }
                     }
-                    if (e.request.url) {
-                        const element = document.getElementById(`${e.mediaType}-request-url`);
-                        element.innerText = e.request.url;
-                    }
                 }
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        function _serviceLocationChanged(selectedServiceLocation, domElements) {
-            const activeServiceLocations = Object.keys(selectedServiceLocation).reduce((acc, key) => {
-                acc[selectedServiceLocation[key]] = true;
-                return acc;
-            }, {})
-
-            Object.keys(domElements).forEach((key) => {
-                const elem = domElements[key];
-
-                if (activeServiceLocations[key]) {
-                    elem.setAttribute('src', 'img/server-active.svg')
-                } else {
-                    elem.setAttribute('src', 'img/server.svg');
-                }
-
-            })
-        }
-
-        function _onBaseUrlsUpdated(e) {
-            if (!e || !e.baseUrls || e.baseUrls.length === 0) {
-                return;
-            }
-            const divContainer = document.getElementById('cdn-selection-container');
-            /* Only create the once we dont have yet */
-            e.baseUrls.forEach((baseUrl) => {
-                if (baseUrl.serviceLocation) {
-                    const existingElement = document.getElementById(`cdn-selection-${baseUrl.serviceLocation}`);
-                    if (!existingElement) {
-                        const spanContainer = document.createElement('span');
-                        spanContainer.setAttribute('id', `cdn-selection-${baseUrl.serviceLocation}`);
-                        const figure = document.createElement('figure');
-                        figure.setAttribute('class', 'cdn-selection');
-                        const img = document.createElement('img');
-                        img.setAttribute('src', 'img/server.svg');
-                        img.setAttribute('class', 'figure-img img-fluid cdn-selection');
-                        const figCaption = document.createElement('figcaption');
-                        figCaption.setAttribute('class', 'figure-caption');
-                        const label = document.createTextNode(`${baseUrl.serviceLocation}`);
-                        figCaption.appendChild(label);
-                        figure.appendChild(img)
-                        figure.appendChild(figCaption);
-                        spanContainer.appendChild(figure);
-                        divContainer.appendChild(spanContainer);
-                        cdnSelectionImgDomElements[baseUrl.serviceLocation] = img;
-                    }
-                }
-            })
-        }
-
-        function _onManifestLoaded() {
-            const locations = player.getAvailableLocations();
-            if (!locations || locations.length === 0) {
-                return;
-            }
-            const divContainer = document.getElementById('location-selection-container');
-            /* Only create the once we dont have yet */
-            locations.forEach((location) => {
-                if (location.serviceLocation) {
-                    const existingElement = document.getElementById(`cdn-selection-${location.serviceLocation}`);
-                    if (!existingElement) {
-                        const spanContainer = document.createElement('span');
-                        spanContainer.setAttribute('id', `cdn-selection-${location.serviceLocation}`);
-                        const figure = document.createElement('figure');
-                        figure.setAttribute('class', 'cdn-selection');
-                        const img = document.createElement('img');
-                        img.setAttribute('src', 'img/server.svg');
-                        img.setAttribute('class', 'figure-img img-fluid cdn-selection');
-                        const figCaption = document.createElement('figcaption');
-                        figCaption.setAttribute('class', 'figure-caption');
-                        const label = document.createTextNode(`${location.serviceLocation}`);
-                        figCaption.appendChild(label);
-                        figure.appendChild(img)
-                        figure.appendChild(figCaption);
-                        spanContainer.appendChild(figure);
-                        divContainer.appendChild(spanContainer);
-                        locationSelectionImgDomElements[location.serviceLocation] = img;
-                    }
-                }
-            })
-        }
-
-        function _onManifestLoadingStarted(e) {
-            try {
-                if (e.request.serviceLocation) {
-
-                }
-                if (e.request.url) {
-                    const element = document.getElementById(`manifest-request-url`);
-                    element.innerText = e.request.url;
-                }
-                const slElement = document.getElementById(`manifest-service-location`);
-                if (e.request.serviceLocation) {
-                    slElement.innerText = e.request.serviceLocation;
-                    _serviceLocationChanged({ manifest: e.request.serviceLocation }, locationSelectionImgDomElements)
-                } else {
-                    slElement.innerText = '';
-                }
-            } catch (e) {
-                console.error(e);
-            }
+            } catch (err) { console.error("[CLIENT] Error in _onFragmentLoadingCompleted:", err); }
         }
 
         function _onContentSteeringRequestCompleted(e) {
             try {
-                if (e) {
-                    document.getElementById(`steering-request-timestamp`).innerText = new Date().toISOString();
-                    if (e.url) {
-                        document.getElementById(`steering-request-url`).innerText = decodeURIComponent(e.url);
-                    }
-                    if (e.currentSteeringResponseData) {
-                        document.getElementById(`steering-version`).innerText = e.currentSteeringResponseData.version;
-                        document.getElementById(`steering-ttl`).innerText = e.currentSteeringResponseData.ttl;
-                        document.getElementById(`steering-reload-uri`).innerText = e.currentSteeringResponseData.reloadUri;
-                        document.getElementById(`steering-pathway-priority`).innerText = e.currentSteeringResponseData.pathwayPriority.toString();
-                        document.getElementById(`steering-pathway-cloning`).innerText = JSON.stringify(e.currentSteeringResponseData.pathwayClones, null, '\t');
-                    }
+                if (!e) return;
+                document.getElementById(`steering-request-timestamp`).innerText = new Date().toLocaleTimeString();
+                if (e.url) document.getElementById(`steering-request-url`).innerText = decodeURIComponent(e.url);
+                if (e.currentSteeringResponseData) {
+                    const data = e.currentSteeringResponseData;
+                    const priority = data["PATHWAY-PRIORITY"] || data.pathwayPriority || [];
+                    document.getElementById(`steering-decision-display`).textContent = priority.map(p => CACHE_COORDS[p]?.label || p).join(' > ');
+                    document.getElementById(`steering-pathway-cloning`).innerText = JSON.stringify(data["PATHWAY-CLONES"] || data.pathwayClones || [], null, 2);
                 }
-            } catch (e) {
-                console.error(e);
+            } catch (err) { console.error("[CLIENT] Error in _onContentSteeringRequestCompleted:", err); }
+        }
+        function _createIcon(container, serviceLoc, domMap, prefix) {
+            const span = document.createElement("span");
+            span.id = `${prefix}-icon-${serviceLoc}`;
+            const figure = document.createElement("figure"); figure.className = "cdn-selection";
+            const img = document.createElement("img");
+            img.src = "img/server.svg"; img.alt = serviceLoc;
+            img.className = "figure-img img-fluid cdn-selection";
+            const figCaption = document.createElement("figcaption"); figCaption.className = "figure-caption";
+            figCaption.textContent = CACHE_COORDS[serviceLoc]?.label || serviceLoc;
+            figure.append(img, figCaption); span.appendChild(figure); container.appendChild(span);
+            domMap[serviceLoc] = img;
+        }
+        function _updateActiveServerIcons() {
+            const activeServers = {};
+            if (currentSegmentServiceLocation.audio) activeServers[currentSegmentServiceLocation.audio] = true;
+            if (currentSegmentServiceLocation.video) activeServers[currentSegmentServiceLocation.video] = true;
+            for (const serverName in cdnIconDomElements) {
+                if (cdnIconDomElements.hasOwnProperty(serverName)) {
+                    cdnIconDomElements[serverName].src = activeServers[serverName] ? "img/server-active.svg" : "img/server.svg";
+                }
             }
         }
-
+        document.addEventListener("DOMContentLoaded", init);
     </script>
-<link rel="stylesheet" href="./Content Steering_files/tomorrow.min.css"><script src="./Content Steering_files/highlight.min.js.baixados"></script></head>
-<body>
-
-<main>
-    <div class="container py-4">
-        <header class="pb-3 mb-4 border-bottom">
-            <img class="" src="./Content Steering_files/dashjs-logo.png" width="200">
-        </header>
-        <div class="row">
-            <h1>Content Steering</h1>
-            <div class="col-md-5">
-                <div class="h-100 p-5 border rounded-3">
-                    <h4>Description</h4>
-                    <p>Content distributors often use multiple Content Delivery Networks (CDNs) to
-                        distribute their content to the end-users. They may upload a copy of their catalogue
-                        to each CDN, or more commonly have all CDNs pull the content from a common
-                        origin. Alternate URLs are generated, one for each CDN, that point at identical
-                        content. DASH players may access alternate URLs in the event of delivery
-                        problems. </p>
-                    <p><b>Content steering</b> describes a deterministic capability for a content
-                        distributor to switch the content source that a player uses either at start-up or
-                        midstream, by means of a remote steering service. The DASH implementation of
-                        Content Steering also supports the notion of a proxy steering server which can
-                        switch a mobile client between broadcast and unicast sources. </p>
-                </div>
-            </div>
-            <div class="col-md-7">
-                <div class="h-100 p-5 border rounded-3">
-                    <h4>Architecture</h4>
-                    <img src="./Content Steering_files/steering.png" class="img-fluid" alt="Steering architecture illustration">
-                </div>
-            </div>
-        </div>
-        <div class="row mt-4">
-            <div class="col-md-12">
-                <div class="input-group mb-3">
-                    <input type="text" id="manifest" class="form-control" placeholder="MPD URL" value="https://www.content-steering.com/bbb/playlist_steering_cloudfront_https.mpd">
-                    <button type="button" id="load-button" class="btn btn-success">Load MPD
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="row mt-2">
-            <div class="col-md-6">
-                <video controls="true" muted="" preload="auto"></video>
-            </div>
-            <div class="col-md-6">
-                <div class="h-100 p-5 border rounded-3">
-                    <h5>CDN Selection</h5>
-                    <div id="cdn-selection-container"></div>
-                    <h5 style="margin-top: 20px">Location Selection</h5>
-                    <div id="location-selection-container">
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row mt-2">
-            <div class="col-md-6">
-                <div class="h-100 p-5 border rounded-3">
-                    <h5> Fragment Requests</h5>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                            <tr>
-                                <th scope="col">Type</th>
-                                <th scope="col">Service Location</th>
-                                <th scope="col">Request URL</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr>
-                                <td>Audio</td>
-                                <td id="audio-service-location"></td>
-                                <td id="audio-request-url"></td>
-                            </tr>
-                            <tr>
-                                <td>Video</td>
-                                <td id="video-service-location"></td>
-                                <td id="video-request-url"></td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="h-100 p-5 border rounded-3">
-                    <h5> Manifest Requests</h5>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                            <tr>
-                                <th scope="col">Service Location</th>
-                                <th scope="col">Request URL</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr>
-                                <td id="manifest-service-location"></td>
-                                <td id="manifest-request-url"></td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="h-100 p-5 border rounded-3">
-                    <h5> Cache Spam</h5>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <select name="select" id="select_server">
-                                            <option value="0">Cache 1</option>
-                                            <option value="1">Cache 2</option>
-                                            <option value="2">Cache 3</option>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <label class="switch">
-                                            <input type="checkbox" id="switch_spam">
-                                            <span class="slider round"></span>
-                                        </label>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-12 mt-2">
-                <div class="h-100 p-5 border rounded-3">
-                    <h5> Steering Data</h5>
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                            <tr>
-                                <th scope="col">Attribute</th>
-                                <th scope="col">Value</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr>
-                            </tr><tr>
-                                <td>Timestamp</td>
-                                <td id="steering-request-timestamp"></td>
-                            </tr>
-                            <tr>
-                                <td>Request URL</td>
-                                <td>
-                                    <span id="steering-request-url"></span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Response - Version</td>
-                                <td><span id="steering-version"></span></td>
-                            </tr>
-                            <tr>
-                                <td>Response - Reload URI</td>
-                                <td><span id="steering-reload-uri"></span></td>
-                            </tr>
-                            <tr>
-                                <td>Response - Pathway Priority</td>
-                                <td><span id="steering-pathway-priority"></span></td>
-                            </tr>
-                            <tr>
-                                <td>Response - Pathway Clones</td>
-                                <td>
-                                    <pre><span id="steering-pathway-cloning"></span></pre>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Response - TTL</td>
-                                <td><span id="steering-ttl"></span></td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-12 mt-2">
-                <div class="h-100 p-5 border rounded-3">
-                    <h5> Simulador de Movimento</h5>
-                    <div class="table-responsive">
-                        <table class="table">
-                            <tbody>
-                            <tr><td>
-                                <input type="number" step="0.00001" id="latitude" placeholder="latitude"><br>
-                                <input type="number" step="0.00001" id="longitude" placeholder="longitude"></td>
-                                <td>
-                                <select name="select" id="select-coords">
-                                    <option value="0">Direção Cache 1</option>
-                                    <option value="1">Direção Cache 2</option>
-                                    <option value="2">Direção Cache 3</option>
-                                </select></td>
-                                <td>
-                                    <button type="button" id="button_Trigger" class="btn btn-success">Start Simulator
-                                    </button>
-                                    <button type="button" id="button_StopTrigger" class="btn btn-success">Stop Simulator
-                                    </button>
-                                </td>
-                            </tr>
-                            </tbody>
-                            <tbody>
-                                <tr>
-                                    <td>Instant Latitude: </td><td><input type="number" id="instlat"></td>
-                                </tr>
-                                <tr>
-                                    <td>Instant Longitude: </td><td><input type="number" id="instlong"></td>
-                                </tr>
-                                    
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-12">
-                <div id="code-output"><div style="margin-top: 30px; display: block; width: 100%;"><p style=" font-weight: bold; font-size: 1.1em">Source code<button id="clipboard-copy" style="float: right; margin: 10px 10px 0 0">Copy to clipboard</button></p><pre style="border: solid 1px #ddd"><code class="html javascript hljs xml" id="code"><span class="hljs-tag">&lt;<span class="hljs-name">script</span>&gt;</span><br><span class="javascript">    <span class="hljs-keyword">let</span> player;</span><br><span class="javascript">    <span class="hljs-keyword">let</span> mpd = <span class="hljs-string">""</span>;</span><br><span class="javascript">    <span class="hljs-keyword">let</span> currentSelectedServiceLocation = {}</span><br><span class="javascript">    <span class="hljs-keyword">let</span> cdnSelectionImgDomElements = {};</span><br><span class="javascript">    <span class="hljs-keyword">let</span> locationSelectionImgDomElements = {};</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">init</span>(<span class="hljs-params"></span>) </span>{</span><br><span class="javascript">        player = dashjs.MediaPlayer().create();</span><br><span class="javascript">        <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">'load-button'</span>).addEventListener(<span class="hljs-string">'click'</span>, <span class="hljs-function"><span class="hljs-keyword">function</span> (<span class="hljs-params"></span>) </span>{</span><br><span class="javascript">            _load();</span><br><span class="javascript">        })</span><br><span class="javascript">        player.initialize(<span class="hljs-built_in">document</span>.querySelector(<span class="hljs-string">"video"</span>), <span class="hljs-literal">null</span>, <span class="hljs-literal">true</span>);</span><br><br><span class="javascript">        player.on(dashjs.MediaPlayer.events.FRAGMENT_LOADING_STARTED, _onFragmentLoadingStarted, <span class="hljs-literal">null</span>);</span><br><span class="javascript">        player.on(dashjs.MediaPlayer.events.MANIFEST_LOADING_STARTED, _onManifestLoadingStarted, <span class="hljs-literal">null</span>);</span><br><span class="javascript">        player.on(dashjs.MediaPlayer.events.CONTENT_STEERING_REQUEST_COMPLETED, _onContentSteeringRequestCompleted, <span class="hljs-literal">null</span>);</span><br><span class="javascript">        player.on(dashjs.MediaPlayer.events.BASE_URLS_UPDATED, _onBaseUrlsUpdated, <span class="hljs-literal">null</span>);</span><br><span class="javascript">        player.on(dashjs.MediaPlayer.events.MANIFEST_LOADED, _onManifestLoaded, <span class="hljs-literal">null</span>);</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_load</span>(<span class="hljs-params"></span>) </span>{</span><br><span class="javascript">        mpd = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">'manifest'</span>).value;</span><br><span class="javascript">        player.attachSource(mpd);</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_onFragmentLoadingStarted</span>(<span class="hljs-params">e</span>) </span>{</span><br><span class="javascript">        <span class="hljs-keyword">try</span> {</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (e &amp;&amp; e.mediaType &amp;&amp; <span class="hljs-function">(<span class="hljs-params">e.mediaType === <span class="hljs-string">'video'</span> || e.mediaType === <span class="hljs-string">'audio'</span></span>) &amp;&amp; <span class="hljs-params">e</span>.<span class="hljs-params">request</span>) {</span></span><br><span class="javascript"><span class="hljs-function">                <span class="hljs-params">if</span> (<span class="hljs-params">e.request.serviceLocation</span>) {</span></span><br><span class="javascript"><span class="hljs-function">                    <span class="hljs-params">const</span> <span class="hljs-params">element</span> = <span class="hljs-params">document</span>.<span class="hljs-params">getElementById</span>(<span class="hljs-params"><span class="hljs-string">`<span class="hljs-subst">${e.mediaType}</span>-service-location`</span></span>);</span></span><br><span class="javascript"><span class="hljs-function">                    <span class="hljs-params">element</span>.<span class="hljs-params">innerText</span> = <span class="hljs-params">e</span>.<span class="hljs-params">request</span>.<span class="hljs-params">serviceLocation</span>;</span></span><br><span class="javascript"><span class="hljs-function">                    <span class="hljs-params">if</span> (<span class="hljs-params">!currentSelectedServiceLocation[e.mediaType] || currentSelectedServiceLocation[e.mediaType] !== e.request.serviceLocation</span>) {</span></span><br><span class="javascript"><span class="hljs-function">                        <span class="hljs-params">currentSelectedServiceLocation</span>[<span class="hljs-params">e</span>.<span class="hljs-params">mediaType</span>] = <span class="hljs-params">e</span>.<span class="hljs-params">request</span>.<span class="hljs-params">serviceLocation</span>;</span></span><br><span class="javascript"><span class="hljs-function">                        <span class="hljs-params">_serviceLocationChanged</span>(<span class="hljs-params">currentSelectedServiceLocation, cdnSelectionImgDomElements</span>);</span></span><br><span class="javascript"><span class="hljs-function">                    }</span></span><br><span class="javascript"><span class="hljs-function">                }</span></span><br><span class="javascript"><span class="hljs-function">                <span class="hljs-params">if</span> (<span class="hljs-params">e.request.url</span>) {</span></span><br><span class="javascript"><span class="hljs-function">                    <span class="hljs-params">const</span> <span class="hljs-params">element</span> = <span class="hljs-params">document</span>.<span class="hljs-params">getElementById</span>(<span class="hljs-params"><span class="hljs-string">`<span class="hljs-subst">${e.mediaType}</span>-request-url`</span></span>);</span></span><br><span class="javascript"><span class="hljs-function">                    <span class="hljs-params">element</span>.<span class="hljs-params">innerText</span> = <span class="hljs-params">e</span>.<span class="hljs-params">request</span>.<span class="hljs-params">url</span>;</span></span><br><span class="javascript"><span class="hljs-function">                }</span></span><br><span class="javascript"><span class="hljs-function">            }</span></span><br><span class="javascript"><span class="hljs-function">        } <span class="hljs-params">catch</span> (<span class="hljs-params">e</span>) {</span></span><br><span class="javascript"><span class="hljs-function">            <span class="hljs-params">console</span>.<span class="hljs-params">error</span>(<span class="hljs-params">e</span>);</span></span><br><span class="javascript"><span class="hljs-function">        }</span></span><br><span class="javascript"><span class="hljs-function">    }</span></span><br><br><span class="javascript"><span class="hljs-function">    <span class="hljs-params">function</span> <span class="hljs-params">_serviceLocationChanged</span>(<span class="hljs-params">selectedServiceLocation, domElements</span>) {</span></span><br><span class="javascript"><span class="hljs-function">        <span class="hljs-params">const</span> <span class="hljs-params">activeServiceLocations</span> = <span class="hljs-params">Object</span>.<span class="hljs-params">keys</span>(<span class="hljs-params">selectedServiceLocation</span>).<span class="hljs-params">reduce</span>(<span class="hljs-params">(acc, key</span>) =&gt;</span> {</span><br><span class="javascript">            acc[selectedServiceLocation[key]] = <span class="hljs-literal">true</span>;</span><br><span class="javascript">            <span class="hljs-keyword">return</span> acc;</span><br><span class="javascript">        }, {})</span><br><br><span class="javascript">        <span class="hljs-built_in">Object</span>.keys(domElements).forEach(<span class="hljs-function">(<span class="hljs-params">key</span>) =&gt;</span> {</span><br><span class="javascript">            <span class="hljs-keyword">const</span> elem = domElements[key];</span><br><br><span class="javascript">            <span class="hljs-keyword">if</span> (activeServiceLocations[key]) {</span><br><span class="javascript">                elem.setAttribute(<span class="hljs-string">'src'</span>, <span class="hljs-string">'img/server-active.svg'</span>)</span><br><span class="javascript">            } <span class="hljs-keyword">else</span> {</span><br><span class="javascript">                elem.setAttribute(<span class="hljs-string">'src'</span>, <span class="hljs-string">'img/server.svg'</span>);</span><br><span class="javascript">            }</span><br><br><span class="javascript">        })</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_onBaseUrlsUpdated</span>(<span class="hljs-params">e</span>) </span>{</span><br><span class="javascript">        <span class="hljs-keyword">if</span> (!e || !e.baseUrls || e.baseUrls.length === <span class="hljs-number">0</span>) {</span><br><span class="javascript">            <span class="hljs-keyword">return</span>;</span><br><span class="javascript">        }</span><br><span class="javascript">        <span class="hljs-keyword">const</span> divContainer = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">'cdn-selection-container'</span>);</span><br><span class="javascript">        <span class="hljs-comment">/* Only create the once we dont have yet */</span></span><br><span class="javascript">        e.baseUrls.forEach(<span class="hljs-function">(<span class="hljs-params">baseUrl</span>) =&gt;</span> {</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (baseUrl.serviceLocation) {</span><br><span class="javascript">                <span class="hljs-keyword">const</span> existingElement = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`cdn-selection-<span class="hljs-subst">${baseUrl.serviceLocation}</span>`</span>);</span><br><span class="javascript">                <span class="hljs-keyword">if</span> (!existingElement) {</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> spanContainer = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'span'</span>);</span><br><span class="javascript">                    spanContainer.setAttribute(<span class="hljs-string">'id'</span>, <span class="hljs-string">`cdn-selection-<span class="hljs-subst">${baseUrl.serviceLocation}</span>`</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> figure = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'figure'</span>);</span><br><span class="javascript">                    figure.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'cdn-selection'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> img = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'img'</span>);</span><br><span class="javascript">                    img.setAttribute(<span class="hljs-string">'src'</span>, <span class="hljs-string">'img/server.svg'</span>);</span><br><span class="javascript">                    img.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'figure-img img-fluid cdn-selection'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> figCaption = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'figcaption'</span>);</span><br><span class="javascript">                    figCaption.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'figure-caption'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> label = <span class="hljs-built_in">document</span>.createTextNode(<span class="hljs-string">`<span class="hljs-subst">${baseUrl.serviceLocation}</span>`</span>);</span><br><span class="javascript">                    figCaption.appendChild(label);</span><br><span class="javascript">                    figure.appendChild(img)</span><br><span class="javascript">                    figure.appendChild(figCaption);</span><br><span class="javascript">                    spanContainer.appendChild(figure);</span><br><span class="javascript">                    divContainer.appendChild(spanContainer);</span><br><span class="javascript">                    cdnSelectionImgDomElements[baseUrl.serviceLocation] = img;</span><br><span class="javascript">                }</span><br><span class="javascript">            }</span><br><span class="javascript">        })</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_onManifestLoaded</span>(<span class="hljs-params"></span>) </span>{</span><br><span class="javascript">        <span class="hljs-keyword">const</span> locations = player.getAvailableLocations();</span><br><span class="javascript">        <span class="hljs-keyword">if</span> (!locations || locations.length === <span class="hljs-number">0</span>) {</span><br><span class="javascript">            <span class="hljs-keyword">return</span>;</span><br><span class="javascript">        }</span><br><span class="javascript">        <span class="hljs-keyword">const</span> divContainer = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">'location-selection-container'</span>);</span><br><span class="javascript">        <span class="hljs-comment">/* Only create the once we dont have yet */</span></span><br><span class="javascript">        locations.forEach(<span class="hljs-function">(<span class="hljs-params">location</span>) =&gt;</span> {</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (location.serviceLocation) {</span><br><span class="javascript">                <span class="hljs-keyword">const</span> existingElement = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`cdn-selection-<span class="hljs-subst">${location.serviceLocation}</span>`</span>);</span><br><span class="javascript">                <span class="hljs-keyword">if</span> (!existingElement) {</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> spanContainer = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'span'</span>);</span><br><span class="javascript">                    spanContainer.setAttribute(<span class="hljs-string">'id'</span>, <span class="hljs-string">`cdn-selection-<span class="hljs-subst">${location.serviceLocation}</span>`</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> figure = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'figure'</span>);</span><br><span class="javascript">                    figure.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'cdn-selection'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> img = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'img'</span>);</span><br><span class="javascript">                    img.setAttribute(<span class="hljs-string">'src'</span>, <span class="hljs-string">'img/server.svg'</span>);</span><br><span class="javascript">                    img.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'figure-img img-fluid cdn-selection'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> figCaption = <span class="hljs-built_in">document</span>.createElement(<span class="hljs-string">'figcaption'</span>);</span><br><span class="javascript">                    figCaption.setAttribute(<span class="hljs-string">'class'</span>, <span class="hljs-string">'figure-caption'</span>);</span><br><span class="javascript">                    <span class="hljs-keyword">const</span> label = <span class="hljs-built_in">document</span>.createTextNode(<span class="hljs-string">`<span class="hljs-subst">${location.serviceLocation}</span>`</span>);</span><br><span class="javascript">                    figCaption.appendChild(label);</span><br><span class="javascript">                    figure.appendChild(img)</span><br><span class="javascript">                    figure.appendChild(figCaption);</span><br><span class="javascript">                    spanContainer.appendChild(figure);</span><br><span class="javascript">                    divContainer.appendChild(spanContainer);</span><br><span class="javascript">                    locationSelectionImgDomElements[location.serviceLocation] = img;</span><br><span class="javascript">                }</span><br><span class="javascript">            }</span><br><span class="javascript">        })</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_onManifestLoadingStarted</span>(<span class="hljs-params">e</span>) </span>{</span><br><span class="javascript">        <span class="hljs-keyword">try</span> {</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (e.request.serviceLocation) {</span><br><br><span class="javascript">            }</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (e.request.url) {</span><br><span class="javascript">                <span class="hljs-keyword">const</span> element = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`manifest-request-url`</span>);</span><br><span class="javascript">                element.innerText = e.request.url;</span><br><span class="javascript">            }</span><br><span class="javascript">            <span class="hljs-keyword">const</span> slElement = <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`manifest-service-location`</span>);</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (e.request.serviceLocation) {</span><br><span class="javascript">                slElement.innerText = e.request.serviceLocation;</span><br><span class="javascript">                _serviceLocationChanged({ <span class="hljs-attr">manifest</span>: e.request.serviceLocation }, locationSelectionImgDomElements)</span><br><span class="javascript">            } <span class="hljs-keyword">else</span> {</span><br><span class="javascript">                slElement.innerText = <span class="hljs-string">''</span>;</span><br><span class="javascript">            }</span><br><span class="javascript">        } <span class="hljs-keyword">catch</span> (e) {</span><br><span class="javascript">            <span class="hljs-built_in">console</span>.error(e);</span><br><span class="javascript">        }</span><br><span class="javascript">    }</span><br><br><span class="javascript">    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">_onContentSteeringRequestCompleted</span>(<span class="hljs-params">e</span>) </span>{</span><br><span class="javascript">        <span class="hljs-keyword">try</span> {</span><br><span class="javascript">            <span class="hljs-keyword">if</span> (e) {</span><br><span class="javascript">                <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-request-timestamp`</span>).innerText = <span class="hljs-keyword">new</span> <span class="hljs-built_in">Date</span>().toISOString();</span><br><span class="javascript">                <span class="hljs-keyword">if</span> (e.url) {</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-request-url`</span>).innerText = <span class="hljs-built_in">decodeURIComponent</span>(e.url);</span><br><span class="javascript">                }</span><br><span class="javascript">                <span class="hljs-keyword">if</span> (e.currentSteeringResponseData) {</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-version`</span>).innerText = e.currentSteeringResponseData.version;</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-ttl`</span>).innerText = e.currentSteeringResponseData.ttl;</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-reload-uri`</span>).innerText = e.currentSteeringResponseData.reloadUri;</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-pathway-priority`</span>).innerText = e.currentSteeringResponseData.pathwayPriority.toString();</span><br><span class="javascript">                    <span class="hljs-built_in">document</span>.getElementById(<span class="hljs-string">`steering-pathway-cloning`</span>).innerText = <span class="hljs-built_in">JSON</span>.stringify(e.currentSteeringResponseData.pathwayClones, <span class="hljs-literal">null</span>, <span class="hljs-string">'\t'</span>);</span><br><span class="javascript">                }</span><br><span class="javascript">            }</span><br><span class="javascript">        } <span class="hljs-keyword">catch</span> (e) {</span><br><span class="javascript">            <span class="hljs-built_in">console</span>.error(e);</span><br><span class="javascript">        }</span><br><span class="javascript">    }</span><br><br><span class="hljs-tag">&lt;/<span class="hljs-name">script</span>&gt;</span><br></code></pre></div></div>
-            </div>
-        </div>
-        <footer class="pt-3 mt-4 text-muted border-top">
-            © DASH-IF
-        </footer>
-    </div>
-</main>
-
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        init();
-    });
-</script>
-<script src="./Content Steering_files/highlighter.js.baixados"></script>
-
-
-</body></html>
+</body>
+</html>
