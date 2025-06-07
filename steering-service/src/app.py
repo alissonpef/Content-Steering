@@ -5,377 +5,292 @@ import json
 import logging
 import argparse
 
-from flask import Flask
-from flask import request
-from flask import jsonify
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 from dash_parser import DashParser
 from monitor import ContainerMonitor
-from selector import EpsilonGreedy, RandomSelector, NoSteeringSelector, UCB1Selector
+from selector import EpsilonGreedy, RandomSelector, NoSteeringSelector, UCB1Selector, OracleBestChoiceSelector
+from dynamic_latency_oracle import DynamicLatencyOracle
 
 STEERING_PORT = 30500
+PROJECT_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+LOG_DIR = os.path.join(PROJECT_ROOT_DIR, "Graphics", "Logs")
+CSV_HEADERS = [
+    "timestamp_server", "sim_time_client", "client_lat", "client_lon",
+    "server_used_for_latency", "experienced_latency_ms_CLIENT",
+    "experienced_latency_ms_ORACLE", "experienced_latency_ms",
+    "all_servers_oracle_latency_json", "steering_decision_main_server",
+    "rl_strategy", "rl_counts_json", "rl_values_json",
+]
 
 selector_instance = None
 selector_initialized = False
 last_steering_main_server_decision = "N/A"
-current_strategy_name = "N/A" 
+current_strategy_name = "N/A"
+latency_oracle = None
+active_log_filename = None
 
-PROJECT_ROOT_DIR = os.path.dirname( 
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
-LOG_DIR = os.path.join(PROJECT_ROOT_DIR, "Graphics", "Logs") 
-CSV_HEADERS = [
-    "timestamp_server",
-    "sim_time_client",
-    "client_lat",
-    "client_lon",
-    "server_used_for_latency",
-    "experienced_latency_ms",
-    "steering_decision_main_server",
-    "rl_strategy",
-    "rl_counts_json",
-    "rl_values_json",
-]
+app_logger = logging.getLogger("SteeringApp")
+oracle_logger = logging.getLogger("LatencyOracle")
+monitor_logger = logging.getLogger("ContainerMonitor")
 
-active_log_filename = None 
+# Configura um logger com um manipulador de stream e formatador padrão
+def _configure_logger(logger_instance, default_level=logging.WARNING):
+    if not logger_instance.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger_instance.addHandler(handler)
+        logger_instance.setLevel(default_level)
 
-def setup_csv_logging(filename):
+_configure_logger(app_logger)
+_configure_logger(oracle_logger)
+_configure_logger(monitor_logger)
+
+# Cria o diretório de logs e inicializa o arquivo CSV com cabeçalhos
+def setup_csv_logging(filename: str):
     try:
         os.makedirs(LOG_DIR, exist_ok=True)
-        with open(filename, mode="w", newline="") as file: 
-            writer = csv.writer(file)
-            writer.writerow(CSV_HEADERS)
-        print(f"[LOGGING_APP] CSV log an d headers set up for {filename}")
+        with open(filename, mode="w", newline="") as file:
+            writer = csv.writer(file); writer.writerow(CSV_HEADERS)
+        app_logger.info(f"Log CSV configurado: {filename}")
     except Exception as e:
-        print(
-            f"[LOGGING_APP] CRITICAL ERROR setting up CSV logging for {filename}: {e}"
-        )
+        app_logger.critical(f"Erro na configuração do log CSV para {filename}: {e}", exc_info=True)
 
-
-def log_data_to_csv(data_dict, filename): 
-    row_to_write = [data_dict.get(header) for header in CSV_HEADERS]
+# Anexa uma linha de dados ao arquivo CSV especificado
+def log_data_to_csv(data_dict: dict, filename: str):
+    row = [data_dict.get(h) for h in CSV_HEADERS]
     try:
-        file_exists = os.path.exists(filename)
-        if not file_exists or (file_exists and os.path.getsize(filename) == 0) :
-             with open(filename, mode="a", newline="") as file: 
-                writer = csv.writer(file)
-                if not file_exists or os.path.getsize(filename) == 0:
-                    writer.writerow(CSV_HEADERS)
-                writer.writerow(row_to_write)
-        else:
-            with open(filename, mode="a", newline="") as file:
-                writer = csv.writer(file)
-                writer.writerow(row_to_write)
-
+        with open(filename, mode="a", newline="") as file:
+            csv.writer(file).writerow(row)
     except Exception as e:
-        print(f"[LOGGING_APP] Error writing to CSV {filename}: {e}")
+        app_logger.error(f"Erro ao escrever no CSV {filename}: {e}", exc_info=True)
 
+# Gera um nome de arquivo único para o log CSV, adicionando um contador se o nome base já existir
+def get_unique_log_filename(base_name: str, suffix: str, directory: str = LOG_DIR) -> str:
+    full_base = f"{base_name}{suffix}"
+    cnt = 1
+    while True:
+        numbered_path = os.path.join(directory, f"{full_base}_{cnt}.csv")
+        if not os.path.exists(numbered_path):
+            return numbered_path
+        cnt += 1
 
 class Main:
-    def __init__(self, selected_selector_instance, strategy_name_arg, log_filename_to_use):
+    # Encapsula a aplicação Flask para o serviço de Content Steering
+    def __init__(self, sel_inst, strategy_arg: str, log_file: str):
         global selector_instance, current_strategy_name, active_log_filename
-        selector_instance = selected_selector_instance
-        current_strategy_name = strategy_name_arg
-        active_log_filename = log_filename_to_use
-
+        selector_instance, current_strategy_name, active_log_filename = sel_inst, strategy_arg, log_file
         self.app = Flask(__name__)
         CORS(self.app)
+        logging.getLogger("werkzeug").setLevel(logging.ERROR)
+        self._register_routes()
 
-        log = logging.getLogger("werkzeug")
-        log.setLevel(logging.ERROR)
-
-        @self.app.route("/<path:name>", methods=["GET", "POST"])
-        def do_remote_steering(name):
-            global selector_initialized, last_steering_main_server_decision, selector_instance
-            tar = request.args.get("_DASH_pathway", default="", type=str)
-
-            if not selector_initialized:
-                available_nodes_info = monitor.getNodes()
-                if available_nodes_info:
-                    node_names = [
-                        info[0] for info in available_nodes_info if info and info[0]
-                    ]
-                    if node_names:
-                        selector_instance.initialize(node_names)
-                        selector_initialized = True
-                    else:
-                        return (
-                            jsonify({"error": "Cache server names not resolved"}),
-                            503,
-                        )
+    # Inicializa ou re-inicializa o seletor de RL se necessário, obtendo nós do monitor
+    # Retorna True se o seletor estiver pronto, False caso contrário
+    def _initialize_selector_if_needed(self) -> bool:
+        global selector_initialized, selector_instance
+        if not selector_initialized or not selector_instance.nodes:
+            nodes_info = monitor.getNodes()
+            if nodes_info:
+                node_names = [info[0] for info in nodes_info if info and info[0]]
+                if node_names:
+                    selector_instance.initialize(node_names)
+                    selector_initialized = True
+                    return True
                 else:
-                    return (
-                        jsonify(
-                            {"error": "No cache servers available or monitor not ready"}
-                        ),
-                        503,
-                    )
-
-            if not selector_instance.nodes:
-                available_nodes_info = monitor.getNodes()
-                if available_nodes_info:
-                    node_names = [
-                        info[0] for info in available_nodes_info if info and info[0]
-                    ]
-                    if node_names:
-                        selector_instance.initialize(node_names)
-                    else:
-                        return (
-                            jsonify(
-                                {
-                                    "error": "Cache server names still not resolved on re-init"
-                                }
-                            ),
-                            503,
-                        )
-                else:
-                    return (
-                        jsonify(
-                            {"error": "Cache servers not ready after re-init attempt"}
-                        ),
-                        503,
-                    )
-
-            ordered_node_names = selector_instance.select_arm()
-
-            if ordered_node_names:
-                last_steering_main_server_decision = ordered_node_names[0]
+                    app_logger.warning("Nenhum nome de nó obtido do monitor para inicializar o seletor.")
             else:
-                last_steering_main_server_decision = "N/A_NO_NODES_FROM_SELECTION"
+                app_logger.warning("Nenhuma informação de nó obtida do monitor para inicializar o seletor.")
+            return False
+        return True
 
-            nodes_for_parser = []
-            for node_name in ordered_node_names:
-                nodes_for_parser.append((node_name, node_name))
+    # Registra as rotas da aplicação Flask
+    def _register_routes(self):
+        # Rota principal para o cliente solicitar decisões de steering
+        # Retorna uma lista ordenada de servidores baseada na estratégia de RL
+        @self.app.route("/<path:name>", methods=["GET", "POST"])
+        def do_remote_steering(name: str):
+            global last_steering_main_server_decision
+            if not self._initialize_selector_if_needed():
+                return jsonify({"error": "Serviço não pronto (falha na inicialização do seletor)."}), 503
 
-            if not nodes_for_parser and ordered_node_names:
-                return (
-                    jsonify(
-                        {
-                            "error": "RL selection resulted in no valid cache servers for parser"
-                        }
-                    ),
-                    503,
-                )
-            elif not ordered_node_names:
-                return (
-                    jsonify({"error": "No cache servers could be selected by RL"}),
-                    503,
-                )
+            ordered_nodes = selector_instance.select_arm()
+            last_steering_main_server_decision = ordered_nodes[0] if ordered_nodes else "N/A_NO_NODES"
+            if not ordered_nodes:
+                app_logger.error("Nenhum servidor selecionado pelo RL.")
+                return jsonify({"error": "Nenhum servidor selecionável"}), 503
 
-            reload_base_uri = f"https://steering-service:{STEERING_PORT}"
-            data = dash_parser.build(
-                target=tar, nodes=nodes_for_parser, uri=reload_base_uri, request=request
-            )
-            return jsonify(data), 200
+            nodes_p = [(n, n) for n in ordered_nodes]
+            uri = f"https://steering-service:{STEERING_PORT}"
+            target = request.args.get("_DASH_pathway", "", str)
+            resp = dash_parser.build(target=target, nodes=nodes_p, uri=uri, request=request)
+            return jsonify(resp), 200
 
+        # Rota para o cliente enviar feedback (coordenadas, latência experimentada)
+        # Usado para atualizar o oráculo de latência, logar dados e atualizar o modelo de RL
         @self.app.route("/coords", methods=["POST"])
         def coords_update():
-            global selector_initialized, last_steering_main_server_decision, selector_instance, current_strategy_name, active_log_filename
+            global last_steering_main_server_decision, selector_instance, latency_oracle, active_log_filename
             if not request.json:
-                return "Invalid request: No JSON body", 400
-
+                return "Requisição inválida: Corpo JSON ausente", 400
             data = request.json
-            sim_time_client = data.get("time")
-            client_lat = data.get("lat")
-            client_lon = data.get("long")
-            experienced_latency_ms = data.get("rt")
-            server_used_for_latency = data.get("server_used")
+            s_t, lat, lon, rt_c, srv_u = (data.get(k) for k in ["time", "lat", "long", "rt", "server_used"])
 
-            log_entry_base = {
-                "timestamp_server": time.time(),
-                "sim_time_client": sim_time_client,
-                "client_lat": client_lat,
-                "client_lon": client_lon,
-                "steering_decision_main_server": last_steering_main_server_decision,
-                "rl_strategy": current_strategy_name,
-                "rl_counts_json": json.dumps(getattr(selector_instance, "counts", {})),
-                "rl_values_json": json.dumps(getattr(selector_instance, "values", {})),
-            }
+            if latency_oracle and lat is not None and lon is not None:
+                latency_oracle.update_client_location(lat, lon)
 
-            if (
-                experienced_latency_ms is not None
-                and server_used_for_latency is not None
-            ):
-                log_entry = {
-                    **log_entry_base,
-                    "server_used_for_latency": server_used_for_latency,
-                    "experienced_latency_ms": experienced_latency_ms,
-                }
+            all_oracle_lats = latency_oracle.get_all_current_latencies() if latency_oracle else {}
+            all_srv_json = json.dumps(all_oracle_lats)
+            log_base = {"timestamp_server": time.time(), "sim_time_client": s_t, "client_lat": lat, "client_lon": lon,
+                          "all_servers_oracle_latency_json": all_srv_json,
+                          "steering_decision_main_server": last_steering_main_server_decision,
+                          "rl_strategy": current_strategy_name,
+                          "rl_counts_json": json.dumps(getattr(selector_instance, "counts", {})),
+                          "rl_values_json": json.dumps(getattr(selector_instance, "values", {}))}
+
+            if srv_u and rt_c is not None and latency_oracle:
+                oracle_lat = all_oracle_lats.get(srv_u, latency_oracle.get_current_latency(srv_u))
+                log_entry = {**log_base, "server_used_for_latency": srv_u,
+                             "experienced_latency_ms_CLIENT": rt_c,
+                             "experienced_latency_ms_ORACLE": oracle_lat, "experienced_latency_ms": oracle_lat}
                 log_data_to_csv(log_entry, filename=active_log_filename)
 
-                if not selector_initialized or not selector_instance.nodes:
-                    available_nodes_info = monitor.getNodes()
-                    if available_nodes_info:
-                        node_names = [
-                            info[0] for info in available_nodes_info if info and info[0]
-                        ]
-                        if node_names:
-                            selector_instance.initialize(node_names)
-                            selector_initialized = True
-                        else:
-                            return (
-                                "Steering service not ready (selector node names unresolved on /coords)",
-                                503,
-                            )
-                    else:
-                        return (
-                            "Steering service not ready (selector not initialized on /coords)",
-                            503,
-                        )
-
+                if not self._initialize_selector_if_needed():
+                    return "Serviço não pronto (seletor em /coords)", 503
                 if hasattr(selector_instance, "update"):
-                    if server_used_for_latency not in selector_instance.nodes:
-                        current_monitor_node_names = [
-                            name for name, _ in monitor.getNodes() if name
-                        ]
-                        if server_used_for_latency in current_monitor_node_names:
-                            selector_instance.initialize(current_monitor_node_names)
-                            if server_used_for_latency in selector_instance.nodes:
-                                selector_instance.update(
-                                    server_used_for_latency,
-                                    float(experienced_latency_ms),
-                                )
+                    if srv_u not in selector_instance.nodes:
+                        app_logger.warning(f"Servidor {srv_u} não está no seletor. Re-inicializando.")
+                        nodes = [n for n, _ in monitor.getNodes() if n]
+                        if srv_u in nodes:
+                            selector_instance.initialize(nodes)
+                            if srv_u in selector_instance.nodes:
+                                selector_instance.update(srv_u, float(oracle_lat))
                             else:
-                                return (
-                                    "Reported server still not recognized after re-init",
-                                    400,
-                                )
+                                return "Servidor não reconhecido após re-inicialização", 400
                         else:
-                            return "Reported server not in monitor list", 400
+                            return "Servidor não está na lista do monitor", 400
                     else:
-                        selector_instance.update(
-                            server_used_for_latency, float(experienced_latency_ms)
-                        )
-                    return "RL/Selector updated and data logged", 200
-                else:
-                    return "Data logged (selector does not support update)", 200
+                        selector_instance.update(srv_u, float(oracle_lat))
+                    return "RL atualizado e logado", 200
+                return "Dados logados (sem atualização de RL)", 200
+            elif lat is not None and lon is not None:
+                log_entry = {**log_base, "server_used_for_latency": srv_u, "experienced_latency_ms_CLIENT": rt_c,
+                             "experienced_latency_ms_ORACLE": None, "experienced_latency_ms": None}
+                log_data_to_csv(log_entry, filename=active_log_filename)
+                return "Dados de localização logados", 200
             else:
-                if client_lat is not None and client_lon is not None:
-                    log_entry = {
-                        **log_entry_base,
-                        "server_used_for_latency": None,
-                        "experienced_latency_ms": None,
-                    }
-                    log_data_to_csv(log_entry, filename=active_log_filename)
-                    return (
-                        "Location data logged (no latency info for RL/selector update)",
-                        200,
-                    )
-                else:
-                    return "Invalid data: Missing location or latency info", 400
+                return "Dados inválidos: Localização ou informação crítica ausente", 400
 
+        # Rota para simular um evento de latência (e.g., congestionamento) em um servidor específico
+        @self.app.route("/latency_event", methods=["POST"])
+        def latency_event_route():
+            global latency_oracle
+            if not request.json:
+                return "Requisição inválida: Corpo JSON ausente", 400
+            data = request.json
+            server = data.get("server_name")
+            factor = data.get("factor", 2.0)
+            duration = data.get("duration_seconds", 10)
+            app_logger.info(f"Evento de Latência: Servidor={server}, Fator={factor}, Duração={duration}s")
+            if not server:
+                return "Nome do servidor (server_name) ausente", 400
+            if not latency_oracle:
+                return "Oráculo de latência não está pronto", 503
+            try:
+                latency_oracle.apply_event_modifier(server, float(factor), int(duration))
+                return f"Evento de latência para {server} aplicado", 200
+            except ValueError:
+                return "Formato inválido para fator ou duração", 400
+            except Exception as e:
+                app_logger.error(f"Erro em /latency_event: {e}", exc_info=True)
+                return "Erro ao aplicar evento", 500
+
+    # Inicia a aplicação Flask, tentando HTTPS e recorrendo a HTTP em caso de falha
     def run(self):
-        global current_strategy_name 
-        current_script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_base_dir_for_certs = os.path.dirname(current_script_dir)
-        ssl_context_cert = os.path.join(
-            project_base_dir_for_certs, "certs", "steering-service.pem"
-        )
-        ssl_context_key = os.path.join(
-            project_base_dir_for_certs, "certs", "steering-service-key.pem"
-        )
-
+        global current_strategy_name
+        s_dir = os.path.dirname(os.path.abspath(__file__))
+        certs_dir = os.path.join(s_dir, "..", "certs")
+        cert = os.path.join(certs_dir, "steering-service.pem")
+        key = os.path.join(certs_dir, "steering-service-key.pem")
         try:
-            if not os.path.exists(ssl_context_cert) or not os.path.exists(
-                ssl_context_key
-            ):
-                raise FileNotFoundError(
-                    f"SSL certificate or key not found at {ssl_context_cert} or {ssl_context_key}"
-                )
-            ssl_context = (ssl_context_cert, ssl_context_key)
-            print(
-                f"Steering service (Strategy: {current_strategy_name}) running on https://0.0.0.0:{STEERING_PORT}"
-            )
-            self.app.run(
-                host="0.0.0.0", port=STEERING_PORT, debug=False, ssl_context=ssl_context
-            )
+            if not (os.path.exists(cert) and os.path.exists(key)):
+                raise FileNotFoundError("Certificado/chave SSL não encontrado.")
+            app_logger.info(f"Serviço (Estratégia: {current_strategy_name}) em https://0.0.0.0:{STEERING_PORT}")
+            self.app.run(host="0.0.0.0", port=STEERING_PORT, debug=False, ssl_context=(cert, key))
         except Exception as e:
-            print(f"[STEERING_APP] ERROR starting Flask with SSL: {e}")
-            print("[STEERING_APP] Falling back to HTTP.")
-            print(
-                f"Steering service (Strategy: {current_strategy_name}) running on http://0.0.0.0:{STEERING_PORT}"
-            )
+            app_logger.critical(f"Falha ao iniciar SSL: {e}", exc_info=True)
+            app_logger.info(f"Fallback para HTTP. Serviço (Estratégia: {current_strategy_name}) em http://0.0.0.0:{STEERING_PORT}")
             self.app.run(host="0.0.0.0", port=STEERING_PORT, debug=False)
-
 
 dash_parser = DashParser()
 monitor = ContainerMonitor()
 
-def get_unique_log_filename(base_filename_without_ext, suffix_arg, directory=LOG_DIR):
-    base_with_suffix = f"{base_filename_without_ext}{suffix_arg}"
-    counter = 1
-    while True:
-        numbered_filename = f"{base_with_suffix}_{counter}.csv"
-        candidate_filename = os.path.join(directory, numbered_filename)
-        if not os.path.exists(candidate_filename):
-            return candidate_filename
-        counter += 1
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Content Steering Service with selectable strategies."
-    )
-    parser.add_argument(
-        "--strategy",
-        type=str,
-        default="epsilon_greedy",
-        choices=["epsilon_greedy", "no_steering", "random", "ucb1"],
-        help="Steering strategy to use (epsilon_greedy, no_steering, random, ucb1).",
-    )
-    parser.add_argument(
-        "--log_suffix",
-        type=str,
-        default="",
-        help="Suffix to append to the log file name (e.g., _runA, _mobile_stress).",
-    )
+    parser = argparse.ArgumentParser(description="Serviço de Content Steering com RL.")
+    parser.add_argument("--strategy", type=str, default="epsilon_greedy",
+                        choices=["epsilon_greedy", "no_steering", "random", "ucb1", "oracle_best_choice"],
+                        help="Estratégia de steering.")
+    parser.add_argument("--log_suffix", type=str, default="", help="Sufixo opcional para o nome do arquivo de log CSV.")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Habilita logging DEBUG.")
     args = parser.parse_args()
 
-    current_strategy_name = args.strategy 
-    print(f"[STEERING_APP] Using strategy: {current_strategy_name}")
+    log_level = logging.DEBUG if args.verbose else logging.WARNING
+    app_logger.setLevel(log_level)
+    oracle_logger.setLevel(log_level)
+    monitor_logger.setLevel(log_level)
+    if args.verbose:
+        app_logger.info("Logging verboso (DEBUG) habilitado.")
 
-    log_base_name = f"log_{current_strategy_name}"
-    active_log_filename = get_unique_log_filename(log_base_name, args.log_suffix, directory=LOG_DIR)
-    
-    print(f"[LOGGING_APP] Active log file: {active_log_filename}")
+    current_strategy_name = args.strategy
+    app_logger.info(f"Estratégia selecionada: {current_strategy_name}")
+    log_base = f"log_{current_strategy_name}"
+    active_log_filename = get_unique_log_filename(log_base, args.log_suffix, directory=LOG_DIR)
+    app_logger.info(f"Arquivo de log ativo: {active_log_filename}")
+
+    app_logger.info("Iniciando monitor de contêineres...")
+    monitor.start_collecting()
+    app_logger.info("Inicializando oráculo de latência...")
+    latency_oracle = DynamicLatencyOracle(monitor, update_interval_seconds=1)
+    latency_oracle.start()
 
     if args.strategy == "epsilon_greedy":
-        current_selector_instance = EpsilonGreedy(
-            epsilon=0.3, counts={}, values={}, monitor=monitor
-        )
+        selector_instance = EpsilonGreedy(epsilon=0.1, counts={}, values={}, monitor=monitor, latency_oracle=latency_oracle)
     elif args.strategy == "no_steering":
-        current_selector_instance = NoSteeringSelector(monitor=monitor)
+        selector_instance = NoSteeringSelector(monitor=monitor, latency_oracle=latency_oracle)
     elif args.strategy == "random":
-        current_selector_instance = RandomSelector(monitor=monitor)
+        selector_instance = RandomSelector(monitor=monitor, latency_oracle=latency_oracle)
     elif args.strategy == "ucb1":
-        current_selector_instance = UCB1Selector(monitor=monitor)
+        selector_instance = UCB1Selector(monitor=monitor, latency_oracle=latency_oracle)
+    elif args.strategy == "oracle_best_choice":
+        selector_instance = OracleBestChoiceSelector(monitor=monitor, latency_oracle=latency_oracle)
     else:
-        print(
-            f"CRITICAL: Unknown strategy '{args.strategy}'. Defaulting to EpsilonGreedy."
-        )
-        current_strategy_name = "epsilon_greedy" 
-        log_base_name = f"log_{current_strategy_name}" 
-        active_log_filename = get_unique_log_filename(log_base_name, args.log_suffix, directory=LOG_DIR) 
-        current_selector_instance = EpsilonGreedy(
-            epsilon=0.3, counts={}, values={}, monitor=monitor
-        )
+        app_logger.critical(f"Estratégia desconhecida: {args.strategy}. Usando EpsilonGreedy como padrão.")
+        current_strategy_name = "epsilon_greedy"
+        log_base = "log_epsilon_greedy"
+        active_log_filename = get_unique_log_filename(log_base, args.log_suffix, directory=LOG_DIR) 
+        selector_instance = EpsilonGreedy(epsilon=0.1, counts={}, values={}, monitor=monitor, latency_oracle=latency_oracle)
 
-    setup_csv_logging(filename=active_log_filename) 
-    monitor.start_collecting()
-
-    main_app_instance = Main(
-        current_selector_instance, current_strategy_name, active_log_filename 
-    )
+    setup_csv_logging(filename=active_log_filename)
+    app_logger.info("Criando instância da aplicação Flask...")
+    main_app = Main(selector_instance, current_strategy_name, active_log_filename)
 
     try:
-        main_app_instance.run()
+        main_app.run()
     except KeyboardInterrupt:
-        print(
-            f"\n[STEERING_APP] Steering service (Strategy: {current_strategy_name}) shutting down (Ctrl+C)."
-        )
+        app_logger.info("Serviço encerrando (Ctrl+C).")
     except Exception as e:
-        print(
-            f"[STEERING_APP] An unexpected error occurred during runtime (Strategy: {current_strategy_name}): {e}"
-        )
+        app_logger.critical(f"Erro em tempo de execução: {e}", exc_info=True)
     finally:
-        print(f"[STEERING_APP] Service (Strategy: {current_strategy_name}) stopped.")
+        app_logger.info("Procedimentos de encerramento...")
+        if latency_oracle:
+            app_logger.info("Parando oráculo de latência...")
+            latency_oracle.stop()
+        if monitor:
+            app_logger.info("Parando monitor de contêineres...")
+            if hasattr(monitor, 'stop_collecting'):
+                monitor.stop_collecting()
+            elif hasattr(monitor, 'running'):
+                monitor.running = False
+        app_logger.info(f"Serviço (Estratégia: {current_strategy_name}) parado.")
