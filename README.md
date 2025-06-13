@@ -1,7 +1,7 @@
 # Content Steering with Reinforcement Learning: VM Simulation
 
 **See it in action!** Watch a video demonstrating the project's functionality:
-[▶️ Watch the Demo Video](https://www.youtube.com/watch?v=DSD8DpCHHQM)
+[▶️ Watch the Demo Video](https://youtu.be/3l2sZNRFYSc)
 
 This project demonstrates the application of Content Steering, using the DASH protocol and Reinforcement Learning (including Epsilon-Greedy and D-UCB), to optimize cache server selection in a simulated video streaming environment. The testing and simulation environment is configured for execution within the provided VirtualBox VM.
 
