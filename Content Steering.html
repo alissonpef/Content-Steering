@@ -27,13 +27,12 @@
           <h4 style="display: inline-block; margin-left: 20px; vertical-align: middle;">Simulation Interface (CSV Data Focus)</h4>
         </header>
 
-        <!-- Controles para configurar e iniciar a simulação. -->
         <div class="row mt-2 mb-3 p-3 border rounded-3 simulation-controls">
             <h5>Simulation Setup</h5>
             <div class="row mb-2">
                 <div class="col-md-4">
                     <label for="simDuration">Total Duration (s):</label>
-                    <input type="number" id="simDuration" value="120" class="form-control form-control-sm d-inline-block" style="width: 80px;">
+                    <input type="number" id="simDuration" value="180" class="form-control form-control-sm d-inline-block" style="width: 80px;">
                 </div>
                 <div class="col-md-8">
                     <label for="initialSimLat">Initial Lat:</label>
@@ -48,16 +47,16 @@
                     <select id="simMovementTarget" class="form-select form-select-sm d-inline-block" style="width: auto;">
                         <option value="none">Stay Still</option>
                     </select>
-                    Start @ <input type="number" id="simMovementStartTime" value="10" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement: Start after X seconds">s
-                    Duration <input type="number" id="simMovementDuration" value="30" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement: Time in seconds to reach target">s
+                    Start @ <input type="number" id="simMovementStartTime" value="45" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement: Start after X seconds">s
+                    Duration <input type="number" id="simMovementDuration" value="60" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Movement: Time in seconds to reach target">s
                 </div>
                 <div class="col-md-6">
                     <label for="simSpamTarget_1">Spam Cache 1:</label>
                     <select id="simSpamTarget_1" class="form-select form-select-sm d-inline-block" style="width: auto;">
                         <option value="none">No Spam</option>
                     </select>
-                    @ <input type="number" id="simSpamStartTime_1" value="20" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 1: Start after X seconds">s
-                    for <input type="number" id="simSpamDuration_1" value="20" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 1: Duration in seconds">s
+                    @ <input type="number" id="simSpamStartTime_1" value="45" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 1: Start after X seconds">s
+                    for <input type="number" id="simSpamDuration_1" value="135" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 1: Duration in seconds">s
                 </div>
             </div>
             <div class="row mb-3 align-items-center">
@@ -68,8 +67,8 @@
                     <select id="simSpamTarget_2" class="form-select form-select-sm d-inline-block" style="width: auto;">
                         <option value="none">No Spam</option>
                     </select>
-                    @ <input type="number" id="simSpamStartTime_2" value="80" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 2: Start after X seconds">s
-                    for <input type="number" id="simSpamDuration_2" value="20" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 2: Duration in seconds">s
+                    @ <input type="number" id="simSpamStartTime_2" value="105" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 2: Start after X seconds">s
+                    for <input type="number" id="simSpamDuration_2" value="75" class="form-control form-control-sm d-inline-block" style="width: 60px;" title="Spam 2: Duration in seconds">s
                 </div>
             </div>
             <div class="col-md-12 mt-1">
@@ -79,7 +78,6 @@
             </div>
         </div>
 
-        <!-- Área principal do player de vídeo e informações da simulação em tempo real. -->
         <div class="row">
           <div class="col-md-7">
             <div class="input-group mb-2">
@@ -101,7 +99,6 @@
                 Spam 1: <span id="simSpamStatus_1">Inactive</span> | Spam 2: <span id="simSpamStatus_2">Inactive</span>
             </div>
           </div>
-          <!-- Exibe informações sobre a seleção de CDN e a decisão de steering. -->
           <div class="col-md-5">
             <div class="p-2 border rounded-3" style="max-height: 450px; overflow-y: auto;">
               <h6>CDN Selection (Active for Segments)</h6>
@@ -126,7 +123,6 @@
     </main>
 
     <script>
-        // Declaração de variáveis globais para o estado da simulação e do player
         let player;
         let currentSegmentServiceLocation = { audio: null, video: null };
         let cdnIconDomElements = {};
@@ -147,7 +143,6 @@
         let simSpamEventSent_1 = false;
         let simSpamEventSent_2 = false;
 
-
         let simCurrentLat, simCurrentLon;
         let isSimulationRunning = false;
         let manifestSuccessfullyLoaded = false;
@@ -159,12 +154,10 @@
 
         let fragmentLoadStarts = {};
 
-        // Interrompe um intervalo de tempo (timer) se ele estiver ativo
         function stopInterval(intervalId) {
             if (intervalId != null) clearInterval(intervalId);
         }
 
-        // Configura ou reconfigura a instância do player dash.js e seus listeners de eventos
         function setupPlayer() {
             const videoElement = document.querySelector("video");
             if (player) {
@@ -180,7 +173,7 @@
             player.on(dashjs.MediaPlayer.events.FRAGMENT_LOADING_COMPLETED, _onFragmentLoadingCompleted);
             player.on(dashjs.MediaPlayer.events.CONTENT_STEERING_REQUEST_COMPLETED, _onContentSteeringRequestCompleted);
             player.on(dashjs.MediaPlayer.events.ERROR, (e) => {
-                console.error("Player Error (Global Listener):", e.error ? (e.error.message || e.error) : e);
+                // console.error("Player Error (Global Listener):", e.error ? (e.error.message || e.error) : e);
                 if (e.error && e.error.code &&
                     (e.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE ||
                      e.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_LOADING_FAILURE_ERROR_CODE ||
@@ -192,8 +185,6 @@
             });
         }
 
-        // Função de inicialização principal da página, chamada após o DOM estar pronto
-        // Configura o player e os listeners de eventos dos botões da UI
         function init() {
             setupPlayer();
             document.getElementById("load-button").addEventListener("click", _load);
@@ -215,7 +206,6 @@
             document.getElementById("button_StopSim").disabled = true;
         }
 
-        // Popula um elemento <select> com opções baseadas nos CACHE_COORDS
         function populateSelect(selectId, noneOptionText) {
             const selectElement = document.getElementById(selectId);
             selectElement.innerHTML = '';
@@ -229,7 +219,6 @@
             }
         }
 
-        // Para a simulação atual, interrompe timers e, opcionalmente, pausa e reseta o player
         function stopCurrentSimulation(pausePlayerAndSeek = true) {
             isSimulationRunning = false;
             if (simTimer) { clearInterval(simTimer); simTimer = null; }
@@ -253,10 +242,9 @@
             document.getElementById("simMovementStatus").textContent = "Inactive";
             document.getElementById("simSpamStatus_1").textContent = "Inactive";
             document.getElementById("simSpamStatus_2").textContent = "Inactive";
-            console.log("[SIM_STOP] Simulation stopped.");
+            // console.log("[SIM_STOP] Simulation stopped.");
         }
 
-        // Reseta apenas os elementos da UI para seus estados iniciais, sem parar timers globais (se houver)
         function _resetUIOnly() {
             simElapsedTime = 0;
             document.getElementById("simCurrentTimeDisplay").textContent = "0";
@@ -281,15 +269,13 @@
             simSpamEventSent_2 = false;
          }
 
-        // Reseta completamente a UI e o estado da simulação
         function resetSimulationUIAndState() {
             stopCurrentSimulation(true);
             _resetUIOnly();
             document.getElementById("button_StartControlledSim").disabled = true;
-            console.log("[SIM_RESET] Simulation UI and state reset.");
+            // console.log("[SIM_RESET] Simulation UI and state reset.");
         }
 
-        // Inicia a simulação controlada com base nos parâmetros configurados na UI
         function startControlledSimulation() {
             if (!manifestSuccessfullyLoaded) {
                 alert("Manifest not loaded. Please load an MPD first.");
@@ -298,7 +284,7 @@
             if (isSimulationRunning) {
                 return;
             }
-            console.log("[SIM_START] Starting controlled simulation...");
+            // console.log("[SIM_START] Starting controlled simulation...");
             simElapsedTime = 0;
             simMovementActive = false; movementStarted = false;
             simSpamActive_1 = false; simSpamActive_2 = false;
@@ -310,7 +296,6 @@
             isSimulationRunning = true;
             fragmentLoadStarts = {};
 
-            // Função para tentar iniciar a reprodução após o stream estar pronto
             function attemptPlayAfterStreamReady() {
                  if (player.getActiveStream() && player.isReady() && manifestSuccessfullyLoaded) {
                     player.seek(0);
@@ -318,7 +303,6 @@
                 }
             }
 
-            // Lógica para iniciar a reprodução dependendo do estado do player
             if (player.getActiveStream() && player.isReady()) {
                 attemptPlayAfterStreamReady();
             } else if (player.isReady()) {
@@ -330,25 +314,24 @@
                 };
                 player.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForPlay, null, { once: true });
             } else {
+                // console.error("[SIM_START_ERR] Player not ready to start simulation.");
                 isSimulationRunning = false;
                 return;
             }
             document.getElementById("button_StartControlledSim").disabled = true;
             document.getElementById("button_StopSim").disabled = false;
 
-            // Obtém parâmetros da simulação da UI
-            const duration = parseInt(document.getElementById("simDuration").value) || 120;
+            const duration = parseInt(document.getElementById("simDuration").value) || 180;
             const movementTarget = document.getElementById("simMovementTarget").value;
-            const movementStartTime = parseInt(document.getElementById("simMovementStartTime").value);
-            const desiredMovementDuration = parseInt(document.getElementById("simMovementDuration").value) || 30;
+            const movementStartTime = parseInt(document.getElementById("simMovementStartTime").value) || 60;
+            const desiredMovementDuration = parseInt(document.getElementById("simMovementDuration").value) || 60;
             const spamTarget_1 = document.getElementById("simSpamTarget_1").value;
-            const spamStartTime_1 = parseInt(document.getElementById("simSpamStartTime_1").value);
-            const spamDuration_1_val = parseInt(document.getElementById("simSpamDuration_1").value) || 20;
+            const spamStartTime_1 = parseInt(document.getElementById("simSpamStartTime_1").value) || 60;
+            const spamDuration_1_val = parseInt(document.getElementById("simSpamDuration_1").value) || 120;
             const spamTarget_2 = document.getElementById("simSpamTarget_2").value;
-            const spamStartTime_2 = parseInt(document.getElementById("simSpamStartTime_2").value);
-            const spamDuration_2_val = parseInt(document.getElementById("simSpamDuration_2").value) || 20;
+            const spamStartTime_2 = parseInt(document.getElementById("simSpamStartTime_2").value) || 120;
+            const spamDuration_2_val = parseInt(document.getElementById("simSpamDuration_2").value) || 60;
 
-            // Define coordenadas iniciais e atualiza UI
             simCurrentLat = parseFloat(document.getElementById("initialSimLat").value);
             simCurrentLon = parseFloat(document.getElementById("initialSimLon").value);
             if(isNaN(simCurrentLat)) simCurrentLat = -23.0;
@@ -400,7 +383,6 @@
             }, 1000);
         }
 
-        // Simula o movimento do cliente para as coordenadas de um cache alvo
         function startSimulatedMovement(targetCacheName, initialClientLat, initialClientLon, moveDurationSec) {
             if (!CACHE_COORDS[targetCacheName]) {
                 simMovementActive = false; document.getElementById("simMovementStatus").textContent = "Error";
@@ -409,7 +391,6 @@
             const targetCoord = CACHE_COORDS[targetCacheName];
             const totalSteps = moveDurationSec > 0 ? Math.max(1, Math.floor(moveDurationSec)) : 1;
 
-            // Calcula o incremento de lat/lon por passo (segundo)
             const stepLat = (targetCoord.lat - initialClientLat) / totalSteps;
             const stepLon = (targetCoord.lon - initialClientLon) / totalSteps;
             let stepsTaken = 0;
@@ -417,7 +398,6 @@
             if (simIntervalID_movement) clearInterval(simIntervalID_movement);
             simIntervalID_movement = null;
 
-            // Função executada a cada segundo para atualizar a posição do cliente
             const intervalFunc = () => {
                 if (!isSimulationRunning || !simMovementActive || !simIntervalID_movement) {
                     stopInterval(simIntervalID_movement); simIntervalID_movement = null;
@@ -442,7 +422,6 @@
             simIntervalID_movement = setInterval(intervalFunc, 1000);
         }
 
-        // Envia um evento para o oráculo de latência para simular "spam" (aumento de latência) em um cache
         function startSimulatedCacheSpam(targetCacheName, phaseId) {
             if (!CACHE_COORDS[targetCacheName]) {
                 if (phaseId === 1) { simSpamActive_1 = false; document.getElementById("simSpamStatus_1").textContent = "Error"; }
@@ -450,11 +429,17 @@
                 return;
             }
             const spamDurationElementId = `simSpamDuration_${phaseId}`;
-            const spamDurationValue = parseInt(document.getElementById(spamDurationElementId)?.value) || 20;
+            const spamDurationValue = parseInt(document.getElementById(spamDurationElementId)?.value);
+             if (isNaN(spamDurationValue) || spamDurationValue <=0 ) {
+                 // console.warn(`[SPAM ${phaseId}] Invalid duration for spam: ${document.getElementById(spamDurationElementId)?.value}`);
+                 if (phaseId === 1) { simSpamActive_1 = false; document.getElementById("simSpamStatus_1").textContent = "Error: Invalid Duration"; }
+                 else { simSpamActive_2 = false; document.getElementById("simSpamStatus_2").textContent = "Error: Invalid Duration"; }
+                return;
+            }
 
             const payload = {
                 server_name: targetCacheName,
-                factor: 10.0,
+                factor: 15.0,
                 duration_seconds: spamDurationValue
             };
             fetch("https://steering-service:30500/latency_event", {
@@ -464,24 +449,23 @@
             })
             .then(response => response.text().then(text => ({ok: response.ok, text, status: response.status})))
             .then(data => {
-                if (!data.ok) console.warn(`[SPAM ${phaseId}] Oracle response error ${data.status}: ${data.text}`);
+                // if (!data.ok) console.warn(`[SPAM ${phaseId}] Oracle response error ${data.status}: ${data.text}`);
             })
-            .catch(err => console.warn(`[SPAM ${phaseId}] Error reporting spam event for ${targetCacheName}:`, err));
+            // .catch(err => console.warn(`[SPAM ${phaseId}] Error reporting spam event for ${targetCacheName}:`, err));
+            .catch(err => {});
         }
 
-        // Envia as coordenadas atuais do cliente para o steering service (endpoint /coords)
-        // Usado para que o oráculo de latência saiba a posição do cliente
         function reportLocationToSteering(lat, lon) {
             if (!isSimulationRunning || lat === undefined || lon === undefined) return;
             const payload = { time: simElapsedTime, lat: lat, long: lon };
             fetch("https://steering-service:30500/coords", {
                 method: "POST", body: JSON.stringify(payload),
                 headers: { "Content-type": "application/json; charset=UTF-8" }
-            }).catch(error => console.warn("[CLIENT] Fetch (location) to /coords failed:", error));
+            })
+            // .catch(error => console.warn("[CLIENT] Fetch (location) to /coords failed:", error));
+            .catch(error => {});
         }
 
-        // Envia feedback de latência (medida pelo cliente para um segmento) para o steering service
-        // Inclui coordenadas, tempo de simulação, latência medida e servidor usado
         function reportLatencyToSteering(lat, lon, clientMeasuredLatency, serverUsed) {
             if (!isSimulationRunning || lat === undefined || lon === undefined) return;
             if (clientMeasuredLatency === undefined || serverUsed === undefined) return;
@@ -499,16 +483,15 @@
             })
             .then(response => response.text().then(text => ({ok: response.ok, status: response.status, text})))
             .then(data => {
-                if (!data.ok) console.warn(`[CLIENT] Latency report /coords error ${data.status}: ${data.text}`);
+                // if (!data.ok) console.warn(`[CLIENT] Latency report /coords error ${data.status}: ${data.text}`);
             })
-            .catch(error => console.error("[CLIENT] Fetch (latency) to /coords failed:", error));
+            // .catch(error => console.error("[CLIENT] Fetch (latency) to /coords failed:", error));
+            .catch(error => {});
         }
 
-        // Carrega um novo manifesto (MPD) no player
-        // Lida com o estado de carregamento e auto-start da simulação se configurado
         function _load() {
             let newMpdUrl = document.getElementById("manifest").value;
-            if (!newMpdUrl) { return; }
+            if (!newMpdUrl) { alert("Please enter an MPD URL."); return; }
 
             manifestSuccessfullyLoaded = false;
             document.getElementById("button_StartControlledSim").disabled = true;
@@ -522,15 +505,19 @@
 
                 onManifestLoadedCallback = function(e) {
                     if(e.error) {
+                        // console.error("Manifest Load Error:", e.error);
+                        alert("Error loading manifest: " + (e.error.message || e.error));
                         manifestSuccessfullyLoaded = false;
                         document.getElementById("button_StartControlledSim").disabled = true;
                     } else {
+                        // console.log("Manifest loaded successfully.");
                         manifestSuccessfullyLoaded = true;
                         const autoStartEnabled = document.getElementById("autoStartCheckbox").checked;
 
                         if (autoStartEnabled) {
+                             if (onStreamInitForAutomaticPlay && player) player.off(dashjs.MediaPlayer.events.STREAM_INITIALIZED, onStreamInitForAutomaticPlay);
                             onStreamInitForAutomaticPlay = function() {
-                                if (player.getActiveStream()) {
+                                if (player.getActiveStream() && player.isReady()) {
                                     if (manifestSuccessfullyLoaded && !isSimulationRunning) {
                                         startControlledSimulation();
                                     }
@@ -548,29 +535,34 @@
                             document.getElementById("button_StartControlledSim").disabled = false;
                         }
                     }
+                     if (player) player.off(dashjs.MediaPlayer.events.MANIFEST_LOADED, onManifestLoadedCallback);
                 };
                 player.on(dashjs.MediaPlayer.events.MANIFEST_LOADED, onManifestLoadedCallback, null, {once: true});
 
+                if (onManifestErrorCallback && player) player.off(dashjs.MediaPlayer.events.ERROR, onManifestErrorCallback);
                 onManifestErrorCallback = function(e) {
                     if (e.error && e.error.code && (
                         e.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_PARSING_FAILURE_ERROR_CODE ||
                         e.error.code === dashjs.MediaPlayer.errors.MANIFEST_LOADER_LOADING_FAILURE_ERROR_CODE ||
                         e.error.code === dashjs.MediaPlayer.errors.DOWNLOAD_ERROR_ID_MANIFEST
                         )) {
+                        // console.error("Manifest specific load/parse error:", e.error);
+                        alert("Failed to load or parse manifest: " + (e.error.message || e.error));
                         manifestSuccessfullyLoaded = false;
                         document.getElementById("button_StartControlledSim").disabled = true;
                     }
+                    if (player) player.off(dashjs.MediaPlayer.events.ERROR, onManifestErrorCallback);
                 };
                 player.on(dashjs.MediaPlayer.events.ERROR, onManifestErrorCallback, null, {once: true});
 
             } catch (error) {
+                 // console.error("Error attaching source to player:", error);
+                 alert("Error setting up player with MPD.");
                  manifestSuccessfullyLoaded = false;
                  document.getElementById("button_StartControlledSim").disabled = true;
             }
         }
 
-        // Chamado quando o player começa a carregar um fragmento (segmento)
-        // Registra o tempo de início e o servidor de origem para cálculo posterior da latência
         function _onFragmentLoadingStarted(e) {
             try {
                 if (e && e.mediaType && (e.mediaType === "video" || e.mediaType === "audio") && e.request) {
@@ -585,11 +577,9 @@
                         _updateActiveServerIcons();
                     }
                 }
-            } catch (err) { console.error("[CLIENT] Error in _onFragmentLoadingStarted:", err); }
+            } catch (err) { /* console.error("[CLIENT] Error in _onFragmentLoadingStarted:", err); */ }
         }
 
-        // Chamado quando o player completa o carregamento de um fragmento
-        // Calcula a latência de download e envia o feedback para o steering service
         function _onFragmentLoadingCompleted(e) {
             try {
                 const key = e.mediaType + "_" + e.request.index;
@@ -607,11 +597,9 @@
                         }
                     }
                 }
-            } catch (err) { console.error("[CLIENT] Error in _onFragmentLoadingCompleted:", err); }
+            } catch (err) { /* console.error("[CLIENT] Error in _onFragmentLoadingCompleted:", err); */ }
         }
 
-        // Chamado quando uma resposta de steering é recebida do steering service
-        // Atualiza a UI com as informações da decisão de steering
         function _onContentSteeringRequestCompleted(e) {
             try {
                 if (!e) return;
@@ -626,10 +614,9 @@
                      document.getElementById(`steering-decision-display`).textContent = "N/A (No response data)";
                      document.getElementById(`steering-pathway-cloning`).innerText = "N/A";
                 }
-            } catch (err) { console.error("[CLIENT] Error in _onContentSteeringRequestCompleted:", err); }
+            } catch (err) { /* console.error("[CLIENT] Error in _onContentSteeringRequestCompleted:", err); */ }
         }
 
-        // Cria um elemento de ícone para um servidor (CDN) e o adiciona ao container na UI
         function _createIcon(container, serviceLoc, domMap, prefix) {
             const span = document.createElement("span");
             span.id = `${prefix}-icon-${serviceLoc}`;
@@ -643,7 +630,6 @@
             domMap[serviceLoc] = img;
         }
 
-        // Atualiza os ícones dos servidores na UI para refletir qual está ativo (baixando segmentos)
         function _updateActiveServerIcons() {
             const activeServers = {};
             if (currentSegmentServiceLocation.audio) activeServers[currentSegmentServiceLocation.audio] = true;
@@ -655,7 +641,6 @@
             }
         }
 
-        // Adiciona o listener para o evento DOMContentLoaded para chamar a função init
         document.addEventListener("DOMContentLoaded", init);
     </script>
 </body>

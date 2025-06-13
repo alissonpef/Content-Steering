@@ -29,7 +29,6 @@ ACTUAL_CACHE_SERVER_NAMES_HYPHEN = [
     "video-streaming-cache-1", "video-streaming-cache-2", "video-streaming-cache-3"
 ]
 
-# Converte um DataFrame Pandas em uma imagem de tabela usando Matplotlib.
 def dataframe_to_image(df: pd.DataFrame, output_image_path: str, title: str ="Server Choice Analysis"):
     try:
         plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica', 'Verdana', 'Bitstream Vera Sans']
@@ -63,11 +62,11 @@ def dataframe_to_image(df: pd.DataFrame, output_image_path: str, title: str ="Se
         cell.set_edgecolor('black')
         if i == 0:
             cell.set_text_props(weight='bold', color='white', wrap=True)
-            cell.set_facecolor('#004C99')
+            cell.set_facecolor('#2C3E50') 
             cell.set_height(0.12 if '\n' in cell.get_text().get_text() else 0.08)
         else:
             cell.set_height(0.07)
-            cell.set_facecolor('#EAF2F8' if i % 2 == 0 else 'white')
+            cell.set_facecolor('#ECF0F1' if i % 2 == 0 else 'white')
         cell.set_alpha(0.95)
     title_y = 1.0 - ( (0.08 * (1 + (1 if any("\n" in str(c) for c in column_labels_formatted) else 0) ) ) / fig_height if fig_height > 0 else 0.05)
     plt.title(title, fontsize=14, y=title_y, pad=15 if any("\n" in str(c) for c in column_labels_formatted) else 10)
@@ -80,7 +79,6 @@ def dataframe_to_image(df: pd.DataFrame, output_image_path: str, title: str ="Se
     except Exception as e: logger.error(f"Error saving table image: {e}", exc_info=False)
     finally: plt.close(fig)
 
-# Analisa arquivos de log (preferencialmente agregados) para calcular a precisão das escolhas de servidor de cada estratégia.
 def analyze_server_choices(logs_dir: str, output_csv_path: str = None, output_img_path: str = None):
     results = {}
     logger.info(f"Analyzing server choices in: {logs_dir}")
@@ -108,7 +106,7 @@ def analyze_server_choices(logs_dir: str, output_csv_path: str = None, output_im
             if 'rl_strategy' in df_log.columns and not df_log['rl_strategy'].empty and pd.notna(df_log['rl_strategy'].iloc[0]):
                 strategy_name = str(df_log['rl_strategy'].iloc[0])
                 if strategy_name == "oracle_best_choice":
-                    strategy_name = "Optimal Strategy" 
+                    strategy_name = "Optimal Strategy"
             else:
                 match = re.match(r"log_([a-zA-Z0-9_]+?)_average", filename)
                 if match:
@@ -199,25 +197,27 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyzes logs for dynamic best server choices.")
     parser.add_argument("--output_csv", type=str,
                         default=os.path.join(DEFAULT_AVERAGE_LOGS_DIR, "dynamic_best_choice_accuracy.csv"),
-                        help=f"Optional: Path to save the CSV table. Default: <AverageLogsDir>/dynamic_best_choice_accuracy.csv")
+                        help="Optional: Path to save the CSV table. Default: <AverageLogsDir>/dynamic_best_choice_accuracy.csv")
     parser.add_argument("--output_img", type=str,
                         default=os.path.join(DEFAULT_IMG_OUTPUT_DIR, "dynamic_best_choice_accuracy_table.png"),
-                        help=f"Optional: Path to save the image of the table. Default: <ImgAnalysisTablesDir>/dynamic_best_choice_accuracy_table.png")
+                        help="Optional: Path to save the image of the table. Default: <ImgAnalysisTablesDir>/dynamic_best_choice_accuracy_table.png")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable DEBUG logging.")
     args = parser.parse_args()
 
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-        if logger.handlers:
-            verbose_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            logger.handlers[0].setFormatter(verbose_formatter)
+    log_level_to_set = logging.DEBUG if args.verbose else logging.INFO
+    if logger.handlers:
+        logger.handlers[0].setFormatter(logging.Formatter('%(levelname)s - %(message)s')) 
+        logger.handlers[0].setLevel(log_level_to_set)
+    logger.setLevel(log_level_to_set)
+    logger.info(f"Logging level set to {logging.getLevelName(logger.getEffectiveLevel())}.")
+
 
     output_image_file = args.output_img
     if output_image_file and not os.path.isabs(output_image_file):
         output_image_file = os.path.join(DEFAULT_IMG_OUTPUT_DIR, os.path.basename(output_image_file))
     if output_image_file:
         os.makedirs(os.path.dirname(output_image_file), exist_ok=True)
-    
+
     output_csv_file = args.output_csv
     if output_csv_file and not os.path.isabs(output_csv_file):
         output_csv_file = os.path.join(DEFAULT_AVERAGE_LOGS_DIR, os.path.basename(output_csv_file))

@@ -7,7 +7,6 @@ services:
       - ./certs:/root/certs
       - ../dataset:/srv
     environment:
-      # Brasil
       LATITUDE: "-23"
       LONGITUDE: "-47"
 
@@ -19,7 +18,6 @@ services:
       - ./certs:/root/certs
       - ../dataset:/srv
     environment:
-      # Chile
       LATITUDE: "-33"
       LONGITUDE: "-71"
 
@@ -31,6 +29,5 @@ services:
       - ./certs:/root/certs
       - ../dataset:/srv
     environment:
-      # Colômbia
       LATITUDE: "5"
       LONGITUDE: "-74"

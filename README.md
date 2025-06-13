@@ -1,9 +1,9 @@
- Content Steering with Reinforcement Learning: VM Simulation
+# Content Steering with Reinforcement Learning: VM Simulation
 
 **See it in action!** Watch a video demonstrating the project's functionality:
-[▶️ Watch the Demo Video](https://www.youtube.com/watch?v=DSD8DpCHHQM) 
+[▶️ Watch the Demo Video](https://www.youtube.com/watch?v=DSD8DpCHHQM)
 
-This project demonstrates the application of Content Steering, using the DASH protocol and Reinforcement Learning (Epsilon-Greedy), to optimize cache server selection in a simulated video streaming environment. The testing and simulation environment is configured for execution within the provided VirtualBox VM.
+This project demonstrates the application of Content Steering, using the DASH protocol and Reinforcement Learning (including Epsilon-Greedy and D-UCB), to optimize cache server selection in a simulated video streaming environment. The testing and simulation environment is configured for execution within the provided VirtualBox VM.
 
 ## Virtual Machine (VM) Environment
 
@@ -27,7 +27,7 @@ This project demonstrates the application of Content Steering, using the DASH pr
     *   We recommend cloning the latest version of the project repository directly into the VM. Navigate to a suitable directory (e.g., `~/Documents/`) and clone the repository:
     ```bash
     cd ~/Documents/
-    git clone <https://github.com/alissonpef/Content-Steering> content-steering
+    git clone https://github.com/alissonpef/Content-Steering content-steering
     cd content-steering/
     ```
     This directory, `~/Documents/content-steering/`, will be referred to as the "project root directory".
@@ -53,13 +53,17 @@ Follow these instructions **inside the VirtualBox VM**, in the updated project r
 
 2.  **Generate and Place SSL Certificates:**
     SSL certificates are required to run services over HTTPS. The `create_certs.sh` script (located in the project root `content-steering/`) uses `mkcert` to generate locally trusted certificates.
+    *Ensure `mkcert` is installed and you have run `mkcert -install` once to install its local CA into your system's trust stores.*
 
     a.  **Execute the Certificate Creation Script:**
-        From the project root directory (`content-steering/`), run:
+        The `create_certs.sh` script is designed to be run from the project root directory (`content-steering/`). It expects a service name as an argument. Run it for each cache server and for the steering service:
     ```bash
-    ./create_certs.sh video-streaming-cache-1 video-streaming-cache-2 video-streaming-cache-3 steering-service
+    ./create_certs.sh video-streaming-cache-1
+    ./create_certs.sh video-streaming-cache-2
+    ./create_certs.sh video-streaming-cache-3
+    ./create_certs.sh steering-service
     ```
-    *Note: `mkcert` may request the user's password (`tutorial`) to install the local CA if it's not already installed.*
+    *Note: `mkcert` may request your user password (`tutorial`) if it needs to interact with system trust stores for the first time or if the local CA installation needs permissions.*
 
     b.  **Verification (Optional):**
         The `create_certs.sh` script should create and move certificates to the following directories within the project:
@@ -78,40 +82,45 @@ Follow these instructions **inside the VirtualBox VM**, in the updated project r
 
 4.  **Start the Steering Service (Orchestrator):**
     a.  **Install Python Dependencies (Only the first time or if `requirements.txt` is changed):**
-        From the project root directory (`content-steering/`). The `tutorial` password will be requested:
+        From the project root directory (`content-steering/`). The `tutorial` password may be requested by `sudo`:
     ```bash
     sudo pip3 install -r steering-service/requirements.txt
     ```
 
     b.  **Run `app.py` specifying the desired steering strategy:**
-        Still in the project root directory (`content-steering/`). The `tutorial` password may be requested.
+        Still in the project root directory (`content-steering/`).
         Choose **one** of the following commands to start the service:
+
+    * **D-UCB (Dynamic UCB):**
+    ```bash
+        python3 steering-service/src/app.py --strategy d_ucb
+    ```
 
     * **UCB1:**
     ```bash
-        sudo python3 steering-service/src/app.py --strategy ucb1
+        python3 steering-service/src/app.py --strategy ucb1
     ```
 
     * **Epsilon-Greedy:**
     ```bash
-        sudo python3 steering-service/src/app.py --strategy epsilon_greedy
+        python3 steering-service/src/app.py --strategy epsilon_greedy
     ```
 
     * **Random Selection:**
     ```bash
-        sudo python3 steering-service/src/app.py --strategy random
+        python3 steering-service/src/app.py --strategy random
     ```
 
     * **No Steering:**
     ```bash
-        sudo python3 steering-service/src/app.py --strategy no_steering
+        python3 steering-service/src/app.py --strategy no_steering
     ```
     * **Optimal Strategy (Oracle Best Choice):**
     ```bash
-    python3 steering-service/src/app.py --strategy oracle_best_choice
+        python3 steering-service/src/app.py --strategy oracle_best_choice
     ```
     * **Add Options:**
-        *   `--verbose` or `-v` for detailed debug logs.
+        *   `--verbose` or `-v` for detailed debug logs from the service.
         *   `--log_suffix <suffix>` (e.g., `_testScenario1`) to append a suffix to log filenames for better organization.
 
     The Flask server will start (ideally on `https://0.0.0.0:30500`). Keep this terminal open.
@@ -121,7 +130,7 @@ Follow these instructions **inside the VirtualBox VM**, in the updated project r
 1.  **Navigate to the Project Root Directory:**
     (E.g., `cd ~/Documents/content-steering/`)
 
-2.  **Start a Simple HTTPS Server for the HTML:**
+2.  **Start a Simple HTTP Server for the HTML:**
     ```bash
     python3 -m http.server 8000
     ```
@@ -131,21 +140,22 @@ Follow these instructions **inside the VirtualBox VM**, in the updated project r
 
 1.  **Access the Player Interface:**
     In the VM's browser, go to: `http://127.0.0.1:8000/Content%20Steering.html`.
+    *If the page does not load CSS/JS correctly, ensure you are accessing `Content%20Steering.html` (with the space encoded) or rename the HTML file to not have spaces (e.g., `ContentSteering.html`) and access that.*
 
 2.  **Load the MPD Manifest:**
     The default URL (`https://video-streaming-cache-1/Eldorado/4sec/avc/manifest.mpd`) should work. Click "**Load MPD**".
 
 3.  **Configure and Start the Simulation:**
-    *   Adjust the desired parameters in the "Simulation Setup" panel.
+    *   The HTML interface provides default values for total duration (180s), spam events, and movement events. Adjust these parameters as needed for your experiment.
     *   Click "**Start Simulation**".
 
 4.  **Data Collection:**
-    During the simulation, the file `~/Documents/content-steering/Files/Data/simulation_log.csv` will be populated with simulation data. 
+    During the simulation, log files (e.g., `log_d_ucb_1.csv`) will be populated in the `content-steering/Graphics/Logs/` directory.
 
 
 ### Post-Simulation: Data Processing and Graph Generation
 
-After running your simulations, individual log files (e.g., `log_<strategy_name>_<number>.csv` or `log_<strategy_name>_<suffix>_<number>.csv`) will be in `Graphics/Logs/`. The following steps guide you through processing these logs and generating various graphs. All graph-related scripts (`Generate_graphs.py`, `aggregate_logs.py`, `Generate_aggregated_graphs.py`, `analyze_server_choices.py`, `Generate_compare_graphs.py`) are located in the `Graphics/` directory.
+After running your simulations, individual log files (e.g., `log_<strategy_name>_<number>.csv` or `log_<strategy_name>_<suffix>_<number>.csv`) will be in `Graphics/Logs/`. The following steps guide you through processing these logs and generating various graphs. All graph-related scripts are located in the `Graphics/` directory.
 
 **First, navigate to the `Graphics` directory from your project root:**
 ```bash
@@ -153,109 +163,71 @@ cd Graphics/
 ```
 
 **Step 1: Aggregate Multiple Log Files for Each Strategy**
-If you have run a particular strategy multiple times (resulting in files like `log_ucb1_1.csv`, `log_ucb1_2.csv`), use `aggregate_logs.py` to combine these into a single "average" log file. This script reads from `Graphics/Logs/` and saves the aggregated files into `Graphics/Logs/Average/`.
+Use `aggregate_logs.py` to combine multiple runs of a strategy into a single "average" log file. This script reads from `Graphics/Logs/` and saves aggregated files into `Graphics/Logs/Average/`. Aggregation is limited to a default of 150 seconds of simulation time (configurable in the script).
 
 *   **To aggregate logs for each strategy (run from `Graphics/` directory):**
     ```bash
+    python3 aggregate_logs.py d_ucb
     python3 aggregate_logs.py ucb1
     python3 aggregate_logs.py epsilon_greedy
     python3 aggregate_logs.py random
+    python3 aggregate_logs.py oracle_best_choice 
     python3 aggregate_logs.py no_steering
-    python3 aggregate_logs.py oracle_best_choice
     ```
-    This will create files like `Graphics/Logs/Average/log_ucb1_average.csv`, `Graphics/Logs/Average/log_oracle_best_choice_average.csv`, etc. *(Note: The script adds a numeric suffix like `_1` if an aggregated file with the exact same name already exists).*
-*   **If you used a `--log_suffix` (e.g., `_myTest`) for a set of runs:**
+    This creates files like `Graphics/Logs/Average/log_d_ucb_average.csv`.
+*   **If you used a `--log_suffix` (e.g., `_myTest`) for a set of runs with the steering service:**
     ```bash
-    python3 aggregate_logs.py ucb1 --suffix_pattern _myTest
+    python3 aggregate_logs.py d_ucb --suffix_pattern _myTest
     ```
-    This creates, for example, `Graphics/Logs/Average/log_ucb1_myTest_average.csv`.
 
 **Step 2: Generate Graphs from Aggregated Log Files**
-Use `Generate_aggregated_graphs.py` to create a focused set of plots from a single *aggregated* `_average.csv` file. This provides an overview of each strategy's average performance.
+Use `Generate_aggregated_graphs.py` to visualize the average behavior from a single *aggregated* `_average.csv` file. X-axes are limited to 150 seconds (configurable in the script).
 
 *   **To process a specific aggregated log file (examples run from `Graphics/` directory):**
     ```bash
-    # Example for an aggregated UCB1 log:
-    python3 Generate_aggregated_graphs.py log_ucb1_average.csv
+    # Example for D-UCB:
+    python3 Generate_aggregated_graphs.py Logs/Average/log_d_ucb_average.csv
     
-    # Example for an aggregated Epsilon-Greedy log:
-    python3 Generate_aggregated_graphs.py Logs/Average/log_epsilon_greedy_average.csv # Example with explicit path
-
-    # Example for an aggregated Optimal Strategy (Oracle Best Choice) log:
-    python3 Generate_aggregated_graphs.py log_oracle_best_choice_average.csv
+    # Example for UCB1:
+    python3 Generate_aggregated_graphs.py Logs/Average/log_ucb1_average.csv 
     ```
-    *(The script searches `Graphics/Logs/Average/` by default if only the filename is given).*
-    Graphs for each processed file will be saved in a corresponding subdirectory within `Graphics/Img/` (e.g., `Graphics/Img/log_ucb1_average/`).
+    Graphs are saved in subdirectories within `Graphics/Img/`.
 
 **Step 3: Generate Comparative Analysis Table for Strategy Accuracy**
-Use `analyze_server_choices.py` to generate a table comparing the accuracy of different strategies in choosing the dynamically optimal server. It processes all `*_average.csv` files in `Graphics/Logs/Average/` by default.
-
+Use `analyze_server_choices.py`. It processes `*_average.csv` files found in `Graphics/Logs/Average/`.
 *   **Run the script (from `Graphics/` directory):**
     ```bash
     python3 analyze_server_choices.py
     ```
-    The table will be printed to the console.
-    *   A CSV file (default: `Graphics/Logs/Average/dynamic_best_choice_accuracy.csv`) will be saved.
-    *   An image of the table (default: `Graphics/Img/analysis_tables/dynamic_best_choice_accuracy_table.png`) will be saved.
-    *   Use `--output_csv <path>` and `--output_img <path>` for custom output locations.
+    This script outputs a CSV table and an image of the table comparing the accuracy of different strategies.
 
 **Step 4: Generate a Single Graph Comparing Average Latencies Across All Strategies**
-After generating the `_average.csv` files for each strategy you wish to compare, use `Generate_compare_graphs.py`.
-
-*   **To compare the default metric (`experienced_latency_ms` - chosen server latency based on oracle):**
+Use `Generate_compare_graphs.py`. The X-axis is limited to 150 seconds (configurable in the script).
+*   **To compare the default metric (`experienced_latency_ms`):**
     ```bash
     python3 Generate_compare_graphs.py
     ```
-*   **To compare a different metric, e.g., client-measured latency:**
-    ```bash
-    python3 Generate_compare_graphs.py --metric experienced_latency_ms_CLIENT
-    ```
-*   **To compare the optimal possible latency (should be similar across strategies for the same environment):**
-    ```bash
-    python3 Generate_compare_graphs.py --metric dynamic_best_server_latency
-    ```
-    A single comparison graph (e.g., `all_strategies_latency_comparison.png`) will be saved directly in `Graphics/Img/`.
+    *   You can also specify other metrics:
+        ```bash
+        python3 Generate_compare_graphs.py --metric experienced_latency_ms_CLIENT
+        python3 Generate_compare_graphs.py --metric dynamic_best_server_latency
+        ```
+    The comparison graph is saved in `Graphics/Img/`.
 
 **(Optional) Step 5: Generate Detailed Graphs for Individual Simulation Runs**
-Use `Generate_graphs.py` to create a comprehensive set of plots from a single, *non-aggregated* simulation log file. This helps analyze specific runs in detail.
-
-*   **To process a specific individual log file (examples run from `Graphics/` directory):**
+Use `Generate_graphs.py` for a single, *non-aggregated* simulation log file.
+*   **To process a specific individual log file (example for D-UCB, run from `Graphics/` directory):**
     ```bash
-    # For an Epsilon-Greedy run:
-    python3 Generate_graphs.py log_epsilon_greedy_1.csv 
-    # or (if it automatically adds .csv and finds in Logs/)
-    python3 Generate_graphs.py log_epsilon_greedy_1
-
-    # For a UCB1 run:
-    python3 Generate_graphs.py Logs/log_ucb1_1.csv # Example with explicit path
-
-    # For an Optimal Strategy (Oracle Best Choice) run:
-    python3 Generate_graphs.py log_oracle_best_choice_1.csv
+    python3 Generate_graphs.py Logs/log_d_ucb_1.csv
     ```
-*   If you run `python3 Generate_graphs.py` without arguments (while inside the `Graphics/` directory), it will attempt to process all non-aggregated `.csv` files found in `Graphics/Logs/`.
-
-    Graphs for each processed file will be saved in a corresponding subdirectory within `Graphics/Img/` (e.g., `Graphics/Img/log_epsilon_greedy_1/`).
+    If run without arguments from the `Graphics/` directory, it attempts to process all non-aggregated logs in `Graphics/Logs/`. Graphs are saved in subdirectories within `Graphics/Img/`.
 
 ---
 
 ## Additional Useful Commands
 
-*   **`docker ps`**
-    *   Lists currently running Docker containers.
-*   **`docker compose -f streaming-service/docker-compose.yml down`**
-    *   (Run from the `content-steering/streaming-service/` directory)
-    *   Stops and removes the cache server containers and networks defined in `docker-compose.yml`.
-*   **`docker compose -f streaming-service/docker-compose.yml up -d`**
-    *   (Run from the `content-steering/streaming-service/` directory)
-    *   (Re)creates and (re)starts cache containers in detached mode (-d).
-*   **`docker logs <container_name_or_id> -f`**
-    *   Example: `docker logs video-streaming-cache-1 -f`
-    *   Displays logs for a specific container in real-time (useful for debugging).
-*   **`docker stop <container_name_or_id>`**
-    *   Example: `docker stop video-streaming-cache-2`
-    *   Stops a running container.
-*   **`docker start <container_name_or_id>`**
-    *   Example: `docker start video-streaming-cache-2`
-    *   Starts a previously stopped container.
-
----
+*   **`docker ps`**: Lists currently running Docker containers.
+*   **`docker compose -f ./streaming-service/docker-compose.yml down`**: (Run from project root) Stops and removes cache server containers.
+*   **`docker compose -f ./streaming-service/docker-compose.yml logs -f <service_name>`**: (Run from project root) Tails logs for a specific cache container (e.g., `video-streaming-cache-1`).
+*   **`docker stop <container_name_or_id>`**: Stops a specific container.
+*   **`docker start <container_name_or_id>`**: Starts a specific container.
